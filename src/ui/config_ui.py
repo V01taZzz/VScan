@@ -163,25 +163,24 @@ class ConfigDialog:
         if engine == 'fofa':
             key = self.fofa_key_var.get().strip()
             if key:
-                client = FofaClient("", key)
+                client = FofaClient(key)
                 if client.validate_key():
                     self.fofa_status_label.config(text="可用", fg="green")
                     self.config['api']['fofa']['validated'] = True
-                    self.current_fofa_key = key  # 更新当前密钥
                 else:
                     self.fofa_status_label.config(text="不可用", fg="red")
                     self.config['api']['fofa']['validated'] = False
             else:
                 self.fofa_status_label.config(text="未设置", fg="red")
                 self.config['api']['fofa']['validated'] = False
+
         elif engine == 'quake':
             key = self.quake_key_var.get().strip()
             if key:
                 client = QuakeClient(key)
-                if client.validate_key():
+                if client.validate_key():  # ← 调用新的验证方法
                     self.quake_status_label.config(text="可用", fg="green")
                     self.config['api']['quake']['validated'] = True
-                    self.current_quake_key = key  # 更新当前密钥
                 else:
                     self.quake_status_label.config(text="不可用", fg="red")
                     self.config['api']['quake']['validated'] = False

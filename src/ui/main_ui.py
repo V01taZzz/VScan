@@ -1,27 +1,12 @@
 # ui/main_ui.py
 # -*- coding: utf-8 -*-
 """
-同源资产侦察助手 - VScan (无影风格)
-Date: 2026/1/13
-版本: 1.4.0
-Design by V01ta
-"""
-import threading
-import tkinter as tk
-from tkinter import ttk, messagebox, StringVar, BooleanVar, END
-from src.ui.config_ui import ConfigDialog
-from src.core.config_manager import load_config
-from src.core.fofa_client import FofaClient
-from src.core.quake_client import QuakeClient
-
-# ui/main_ui.py
-# -*- coding: utf-8 -*-
-"""
 同源资产侦察助手 - VScan
 Date: 2026/1/13
 版本: 1.2.0
 Design by V01ta
 """
+import webbrowser
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, StringVar, BooleanVar, END
@@ -96,10 +81,13 @@ class SecurityScannerGUI:
         columns = ("ID", "URL", "IP", "端口", "协议", "标题", "来源", "AI判断")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
 
-        col_widths = [40, 150, 120, 60, 60, 200, 80, 80]
+        col_widths = [40, 200, 120, 60, 60, 200, 80, 80]
         for col, width in zip(columns, col_widths):
             self.tree.heading(col, text=col)
             self.tree.column(col, width=width, anchor="center")
+
+        # 绑定双击事件
+        self.tree.bind("<Double-1>", self.on_url_double_click)
 
         vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
@@ -110,6 +98,27 @@ class SecurityScannerGUI:
         hsb.grid(row=1, column=0, sticky="ew")
         table_frame.grid_rowconfigure(0, weight=1)
         table_frame.grid_columnconfigure(0, weight=1)
+
+    def on_url_double_click(self, event):
+        """处理 URL 双击事件"""
+        selection = self.tree.selection()
+        if not selection:
+            return
+
+        item = selection[0]
+        values = self.tree.item(item)['values']
+
+        if len(values) > 1:
+            url = values[1]
+
+            # 确保 URL 有协议前缀
+            if not url.startswith(('http://', 'https://')):
+                url = 'http://' + url
+
+            try:
+                webbrowser.open(url)
+            except Exception as e:
+                messagebox.showerror("错误", f"无法打开链接: {str(e)}")
 
     def create_status_bar(self):
         """创建底部状态栏"""
@@ -188,9 +197,20 @@ class SecurityScannerGUI:
     def update_results(self, results):
         for i, item in enumerate(results, 1):
             ai_status = "✅有效" if self.ai_var.get() else "-"
+
+            # 构建完整的 URL
+            host = item['host']
+            port = item['port']
+            protocol = item['protocol']
+
+            if port in ['80', '443']:
+                display_url = f"{protocol}://{host}"
+            else:
+                display_url = f"{protocol}://{host}:{port}"
+
             self.tree.insert("", END, values=(
                 i,
-                item['host'],  # 注意：这里还是 host，不是完整 URL
+                display_url,
                 item['ip'],
                 item['port'],
                 item['protocol'],
@@ -201,7 +221,6 @@ class SecurityScannerGUI:
 
         self.status_var.set(f"扫描完成，共发现 {len(results)} 个资产")
         self.is_scanning = False
-
     def clear_results(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
