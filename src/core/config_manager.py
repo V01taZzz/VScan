@@ -5,22 +5,40 @@ Date:2026/1/12
 版本: 1.0.0
 Design by V01ta
 """
+# src/core/config_manager.py
 import yaml
 from pathlib import Path
 
 CONFIG_FILE = "config.yaml"
 
+
 def load_config():
-    """加载配置，若不存在则返回默认模板"""
-    if Path(CONFIG_FILE).exists():
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
+    """加载配置，若不存在则返回空结构"""
+    config_path = Path(CONFIG_FILE)
+
+    if config_path.exists():
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                if config is None:
+                    config = {}
+                return config
+        except (yaml.YAMLError, IOError) as e:
+            print(f"配置文件加载错误: {e}")
+
+    # 返回简化结构（包含验证状态）
     return {
-        'api': {'fofa': {'email': '', 'key': ''}, 'quake': {'key': ''}},
-        'ollama': {'enabled': True, 'host': 'http://localhost:11434', 'model': 'llama3'}
+        'api': {
+            'fofa': {'key': '', 'validated': False},
+            'quake': {'key': '', 'validated': False}
+        }
     }
+
 
 def save_config(config):
     """保存配置到 YAML 文件"""
-    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-        yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+    try:
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+    except Exception as e:
+        print(f"配置保存失败: {e}")

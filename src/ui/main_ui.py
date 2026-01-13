@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
 """
 同源资产侦察助手 - VScan
-Date:2026/1/12 
+Date:2026/1/13 
 版本: 1.0.0
+Design by V01ta
+"""
+# -*- coding: utf-8 -*-
+"""
+同源资产侦察助手 - VScan
+Date: 2026/1/13
+版本: 1.2.0
 Design by V01ta
 """
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox, Toplevel, StringVar, BooleanVar, END
-from ..core.config_manager import load_config, save_config
+from tkinter import ttk, messagebox, StringVar, BooleanVar, END
+from .config_ui import ConfigDialog
+from ..core.config_manager import load_config
 from ..core.fofa_client import FofaClient
 from ..core.quake_client import QuakeClient
 
@@ -22,24 +30,15 @@ class SecurityScannerGUI:
 
         # 加载配置
         self.config = load_config()
+        if self.config is None:
+            self.config = {}
 
         # 创建 UI
-        self.create_menu()
         self.create_widgets()
         self.create_table()
 
         # 状态变量
         self.is_scanning = False
-
-    def create_menu(self):
-        menu_bar = tk.Frame(self.root, bg="#f0f0f0", height=30)
-        menu_bar.pack(fill="x", side="top")
-
-        config_btn = tk.Button(
-            menu_bar, text="配置API", command=self.open_config_dialog,
-            relief="flat", padx=10, pady=2
-        )
-        config_btn.pack(side="right", padx=10, pady=2)
 
     def create_widgets(self):
         search_frame = tk.Frame(self.root, padx=10, pady=10)
@@ -50,6 +49,18 @@ class SecurityScannerGUI:
         target_entry = tk.Entry(search_frame, textvariable=self.target_var, width=30)
         target_entry.pack(side="left", padx=5)
 
+        # 引擎选择下拉框
+        tk.Label(search_frame, text="引擎:").pack(side="left", padx=(10, 0))
+        self.engine_var = StringVar(value="all")
+        engine_combo = ttk.Combobox(
+            search_frame,
+            textvariable=self.engine_var,
+            values=["全部", "FOFA", "Quake"],
+            state="readonly",
+            width=8
+        )
+        engine_combo.pack(side="left", padx=5)
+
         self.ai_var = BooleanVar(value=True)
         ai_check = tk.Checkbutton(search_frame, text="启用AI分析", variable=self.ai_var)
         ai_check.pack(side="left", padx=10)
@@ -59,6 +70,13 @@ class SecurityScannerGUI:
 
         export_btn = tk.Button(search_frame, text="导出 CSV", command=self.export_csv)
         export_btn.pack(side="left", padx=5)
+
+        # 配置按钮放在"就绪"前面
+        config_btn = tk.Button(
+            search_frame, text="配置API", command=self.open_config_dialog,
+            bg="#6c757d", fg="white"
+        )
+        config_btn.pack(side="right", padx=(0, 10))
 
         self.status_var = StringVar(value="就绪")
         status_label = tk.Label(search_frame, textvariable=self.status_var, fg="blue")
@@ -87,72 +105,8 @@ class SecurityScannerGUI:
         table_frame.grid_columnconfigure(0, weight=1)
 
     def open_config_dialog(self):
-        dialog = Toplevel(self.root)
-        dialog.title("API Key配置")
-        dialog.geometry("400x250")
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        dialog.grab_set()
-
-        # FOFA 邮箱
-        tk.Label(dialog, text="Fofa 邮箱:").grid(row=0, column=0, sticky="w", padx=20, pady=10)
-        fofa_email_var = StringVar()
-        fofa_email_var.set(self.config['api']['fofa']['email'])
-        fofa_email_entry = tk.Entry(dialog, textvariable=fofa_email_var, width=30)
-        fofa_email_entry.grid(row=0, column=1, padx=10, pady=10)
-
-        # FOFA Key
-        tk.Label(dialog, text="Fofa Key:").grid(row=1, column=0, sticky="w", padx=20, pady=10)
-        fofa_key_var = StringVar()
-        fofa_key_var.set(self.config['api']['fofa']['key'])
-        fofa_key_entry = tk.Entry(dialog, textvariable=fofa_key_var, width=30, show="*")
-        fofa_key_entry.grid(row=1, column=1, padx=10, pady=10)
-
-        # Quake Key
-        tk.Label(dialog, text="Quake Key:").grid(row=2, column=0, sticky="w", padx=20, pady=10)
-        quake_key_var = StringVar()
-        quake_key_var.set(self.config['api']['quake']['key'])
-        quake_key_entry = tk.Entry(dialog, textvariable=quake_key_var, width=30, show="*")
-        quake_key_entry.grid(row=2, column=1, padx=10, pady=10)
-
-        # 显示/隐藏按钮
-        def toggle_visibility(entry, btn_text):
-            if entry.cget('show') == '*':
-                entry.config(show='')
-                btn_text.set('隐藏')
-            else:
-                entry.config(show='*')
-                btn_text.set('显示')
-
-        fofa_btn_text = StringVar()
-        fofa_btn_text.set("显示")
-        fofa_toggle = tk.Button(
-            dialog, textvariable=fofa_btn_text,
-            command=lambda: toggle_visibility(fofa_key_entry, fofa_btn_text)
-        )
-        fofa_toggle.grid(row=1, column=2, padx=5)
-
-        quake_btn_text = StringVar()
-        quake_btn_text.set("显示")
-        quake_toggle = tk.Button(
-            dialog, textvariable=quake_btn_text,
-            command=lambda: toggle_visibility(quake_key_entry, quake_btn_text)
-        )
-        quake_toggle.grid(row=2, column=2, padx=5)
-
-        def save_config_action():
-            self.config['api']['fofa']['email'] = fofa_email_var.get()
-            self.config['api']['fofa']['key'] = fofa_key_var.get()
-            self.config['api']['quake']['key'] = quake_key_var.get()
-            save_config(self.config)
-            messagebox.showinfo("成功", "配置已保存！")
-            dialog.destroy()
-
-        tk.Button(dialog, text="保存", command=save_config_action, bg="#28a745", fg="white", width=10).grid(row=3,
-                                                                                                            column=1,
-                                                                                                            pady=20,
-                                                                                                            sticky="e")
-        tk.Button(dialog, text="取消", command=dialog.destroy, width=8).grid(row=3, column=0, pady=20, sticky="w")
+        # 创建配置对话框并传入当前配置
+        ConfigDialog(self.root, self.config)
 
     def start_scan(self):
         if self.is_scanning:
@@ -163,25 +117,40 @@ class SecurityScannerGUI:
             messagebox.showwarning("错误", "请输入目标域名")
             return
 
+        # 检查 API 密钥是否已配置
+        engine = self.engine_var.get()
+        fofa_key = self.config.get('api', {}).get('fofa', {}).get('key', '').strip()
+        quake_key = self.config.get('api', {}).get('quake', {}).get('key', '').strip()
+
+        if engine == "FOFA" and not fofa_key:
+            messagebox.showwarning("警告", "请先在「配置API」中设置 FOFA API 密钥！")
+            return
+        elif engine == "Quake" and not quake_key:
+            messagebox.showwarning("警告", "请先在「配置API」中设置 Quake API 密钥！")
+            return
+        elif engine == "全部" and not fofa_key and not quake_key:
+            messagebox.showwarning("警告", "请先在「配置API」中设置至少一个 API 密钥！")
+            return
+
         self.is_scanning = True
         self.status_var.set("正在扫描...")
         self.clear_results()
 
-        thread = threading.Thread(target=self.scan_worker, args=(target,), daemon=True)
+        thread = threading.Thread(target=self.scan_worker, args=(target, engine), daemon=True)
         thread.start()
 
-    def scan_worker(self, target):
+    def scan_worker(self, target, engine):
         results = []
 
-        # 调用 core 模块
-        fofa = FofaClient(
-            self.config['api']['fofa']['email'],
-            self.config['api']['fofa']['key']
-        )
-        results.extend(fofa.search_by_domain(target))
+        if engine in ["全部", "FOFA"]:
+            fofa_key = self.config.get('api', {}).get('fofa', {}).get('key', '')
+            fofa = FofaClient("", fofa_key)
+            results.extend(fofa.search_by_domain(target))
 
-        quake = QuakeClient(self.config['api']['quake']['key'])
-        results.extend(quake.search_by_domain(target))
+        if engine in ["全部", "Quake"]:
+            quake_key = self.config.get('api', {}).get('quake', {}).get('key', '')
+            quake = QuakeClient(quake_key)
+            results.extend(quake.search_by_domain(target))
 
         # 去重
         seen = set()

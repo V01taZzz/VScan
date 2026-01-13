@@ -5,20 +5,21 @@
 版本: 1.0.0
 Design by V01ta
 """
+import sys
+import os
+from pathlib import Path
+
+# 确保项目根目录在 Python 路径中
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
 import tkinter as tk
-from tkinter import ttk
-from src.ui.Scan_UI import SecurityScannerGUI
+from src.ui.main_ui import SecurityScannerGUI
 
 def main():
     root = tk.Tk()
-    style = ttk.Style()
-    style.theme_use("vista")  # Windows 风格
-
     app = SecurityScannerGUI(root)
     root.mainloop()
 
-
 if __name__ == "__main__":
     main()
-
-
