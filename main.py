@@ -1,17 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-同源资产侦察助手 - VScan
-版本: 1.0.0
-Design by V01ta
-"""
+# main.py
 import sys
 import os
 from pathlib import Path
 
-# 确保项目根目录在 Python 路径中
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+# 将项目根目录添加到 Python 路径
+project_root = Path(__file__).parent.absolute()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 import tkinter as tk
 from src.ui.main_ui import SecurityScannerGUI

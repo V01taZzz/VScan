@@ -1,10 +1,20 @@
+# ui/main_ui.py
 # -*- coding: utf-8 -*-
 """
-同源资产侦察助手 - VScan
-Date:2026/1/13 
-版本: 1.0.0
+同源资产侦察助手 - VScan (无影风格)
+Date: 2026/1/13
+版本: 1.4.0
 Design by V01ta
 """
+import threading
+import tkinter as tk
+from tkinter import ttk, messagebox, StringVar, BooleanVar, END
+from src.ui.config_ui import ConfigDialog
+from src.core.config_manager import load_config
+from src.core.fofa_client import FofaClient
+from src.core.quake_client import QuakeClient
+
+# ui/main_ui.py
 # -*- coding: utf-8 -*-
 """
 同源资产侦察助手 - VScan
@@ -36,6 +46,7 @@ class SecurityScannerGUI:
         # 创建 UI
         self.create_widgets()
         self.create_table()
+        self.create_status_bar()
 
         # 状态变量
         self.is_scanning = False
@@ -51,7 +62,7 @@ class SecurityScannerGUI:
 
         # 引擎选择下拉框
         tk.Label(search_frame, text="引擎:").pack(side="left", padx=(10, 0))
-        self.engine_var = StringVar(value="all")
+        self.engine_var = StringVar(value="全部")
         engine_combo = ttk.Combobox(
             search_frame,
             textvariable=self.engine_var,
@@ -71,16 +82,12 @@ class SecurityScannerGUI:
         export_btn = tk.Button(search_frame, text="导出 CSV", command=self.export_csv)
         export_btn.pack(side="left", padx=5)
 
-        # 配置按钮放在"就绪"前面
+        # 配置按钮
         config_btn = tk.Button(
             search_frame, text="配置API", command=self.open_config_dialog,
             bg="#6c757d", fg="white"
         )
         config_btn.pack(side="right", padx=(0, 10))
-
-        self.status_var = StringVar(value="就绪")
-        status_label = tk.Label(search_frame, textvariable=self.status_var, fg="blue")
-        status_label.pack(side="right")
 
     def create_table(self):
         table_frame = tk.Frame(self.root)
@@ -104,9 +111,21 @@ class SecurityScannerGUI:
         table_frame.grid_rowconfigure(0, weight=1)
         table_frame.grid_columnconfigure(0, weight=1)
 
+    def create_status_bar(self):
+        """创建底部状态栏"""
+        status_frame = tk.Frame(self.root)
+        status_frame.pack(fill="x", side="bottom", padx=10, pady=5)
+
+        self.status_var = StringVar(value="就绪")
+        status_label = tk.Label(status_frame, textvariable=self.status_var, fg="blue", anchor="w")
+        status_label.pack(side="left")
+
     def open_config_dialog(self):
-        # 创建配置对话框并传入当前配置
         ConfigDialog(self.root, self.config)
+        # 重新加载配置
+        self.config = load_config()
+        if self.config is None:
+            self.config = {}
 
     def start_scan(self):
         if self.is_scanning:
@@ -144,13 +163,15 @@ class SecurityScannerGUI:
 
         if engine in ["全部", "FOFA"]:
             fofa_key = self.config.get('api', {}).get('fofa', {}).get('key', '')
-            fofa = FofaClient("", fofa_key)
-            results.extend(fofa.search_by_domain(target))
+            if fofa_key:
+                fofa = FofaClient(fofa_key)
+                results.extend(fofa.search_by_domain(target))
 
         if engine in ["全部", "Quake"]:
             quake_key = self.config.get('api', {}).get('quake', {}).get('key', '')
-            quake = QuakeClient(quake_key)
-            results.extend(quake.search_by_domain(target))
+            if quake_key:
+                quake = QuakeClient(quake_key)
+                results.extend(quake.search_by_domain(target))
 
         # 去重
         seen = set()
@@ -169,7 +190,7 @@ class SecurityScannerGUI:
             ai_status = "✅有效" if self.ai_var.get() else "-"
             self.tree.insert("", END, values=(
                 i,
-                item['host'],
+                item['host'],  # 注意：这里还是 host，不是完整 URL
                 item['ip'],
                 item['port'],
                 item['protocol'],
