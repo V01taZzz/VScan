@@ -37,6 +37,21 @@ class SecurityScannerGUI:
         # 状态变量
         self.is_scanning = False
 
+    def set_placeholder(self, placeholder_text):
+        self.placeholder_text = placeholder_text
+        self.target_var.set(placeholder_text)
+        self.target_entry.config(fg="gray")
+
+    def on_entry_focus_in(self, event):
+        if self.target_var.get() == self.placeholder_text:
+            self.target_var.set("")
+            self.target_entry.config(fg="black")
+
+    def on_entry_focus_out(self, event):
+        if not self.target_var.get().strip():
+            self.target_var.set(self.placeholder_text)
+            self.target_entry.config(fg="gray")
+
     def create_widgets(self):
         search_frame = tk.Frame(self.root, padx=10, pady=10)
         search_frame.pack(fill="x")
@@ -55,14 +70,24 @@ class SecurityScannerGUI:
         field_combo.bind('<<ComboboxSelected>>', self.on_field_change)
 
         # 目标输入框
-        self.target_var = StringVar(value="baidu.com")
-        target_entry = tk.Entry(search_frame, textvariable=self.target_var, width=30)
-        target_entry.pack(side="left", padx=5)
+        # self.target_var = StringVar(value="baidu.com")
+        # target_entry = tk.Entry(search_frame, textvariable=self.target_var, width=30)
+        # target_entry.pack(side="left", padx=5)
 
         # 提示标签
         self.hint_var = StringVar(value="请输入域名，如: baidu.com")
-        hint_label = tk.Label(search_frame, textvariable=self.hint_var, fg="gray", font=("Segoe UI", 8))
-        hint_label.pack(side="left", padx=5)
+        # hint_label = tk.Label(search_frame, textvariable=self.hint_var, fg="gray", font=("Segoe UI", 8))
+        # hint_label.pack(side="left", padx=5)
+
+        # 修改输入框创建部分
+        self.target_var = StringVar()
+        self.target_entry = tk.Entry(search_frame, textvariable=self.target_var, width=30)
+        self.target_entry.pack(side="left", padx=5)
+        # 添加占位符设置和事件绑定
+        self.set_placeholder("baidu.com")
+        self.target_entry.bind('<FocusIn>', self.on_entry_focus_in)
+        self.target_entry.bind('<FocusOut>', self.on_entry_focus_out)
+
 
         # 引擎选择下拉框
         tk.Label(search_frame, text="引擎:").pack(side="left", padx=(10, 0))
@@ -94,9 +119,9 @@ class SecurityScannerGUI:
         config_btn.pack(side="right", padx=(0, 10))
 
         # 状态栏
-        self.status_var = StringVar(value="就绪")
-        status_label = tk.Label(search_frame, textvariable=self.status_var, fg="blue")
-        status_label.pack(side="right")
+        # self.status_var = StringVar(value="就绪")
+        # status_label = tk.Label(search_frame, textvariable=self.status_var, fg="blue")
+        # status_label.pack(side="right")
 
     def create_table(self):
         table_frame = tk.Frame(self.root)
@@ -126,7 +151,7 @@ class SecurityScannerGUI:
     def on_field_change(self, event=None):
         """当字段选择改变时更新提示"""
         field = self.field_var.get()
-        hints = {
+        placeholders = {
             "域名": "请输入域名，如: baidu.com",
             "IP": "请输入IP地址，如: 1.1.1.1",
             "端口": "请输入端口号，如: 80",
@@ -135,7 +160,8 @@ class SecurityScannerGUI:
             "body": "请输入页面内容关键词，如: nginx",
             "自定义": "请输入完整查询语句"
         }
-        self.hint_var.set(hints.get(field, ""))
+        placeholder = placeholders.get(field, "baidu.com")
+        self.set_placeholder(placeholder)  # ← 改这里
 
     def build_search_query(self, field, value, engine):
         """根据字段、值和引擎构建查询语法"""
@@ -143,6 +169,8 @@ class SecurityScannerGUI:
             return ""
 
         value = value.strip()
+        if not value.strip() or value == self.placeholder_text:  # ← 添加占位符检查
+            return ""
 
         if field == "自定义":
             return value  # 自定义字段直接返回原内容
@@ -237,6 +265,11 @@ class SecurityScannerGUI:
 
     def start_scan(self):
         if self.is_scanning:
+            return
+
+        target = self.target_var.get().strip()
+        if not target or target == self.placeholder_text:  # ← 添加占位符检查
+            messagebox.showwarning("错误", "请输入搜索内容")
             return
 
         target = self.target_var.get().strip()
