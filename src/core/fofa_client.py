@@ -38,7 +38,46 @@ class FofaClient:
             print(f"FOFA 验证错误: {e}")
         return False
 
-    def search_by_domain(self, domain, total_size=10000):
+    def search_by_query(self, query, total_size=3000):
+        """使用自定义查询语法进行搜索"""
+        if not self.key.strip():
+            print("❌ FOFA 密钥未配置")
+            return []
+
+        try:
+            qbase64 = base64.b64encode(query.encode()).decode()
+
+            params = {
+                'key': self.key,
+                'qbase64': qbase64,
+                'size': total_size,
+                'full': 'true',
+                'fields': 'host,ip,port,protocol,title,domain'
+            }
+
+            resp = requests.get(
+                'https://fofa.info/api/v1/search/all',
+                params=params,
+                timeout=20
+            )
+
+            if resp.status_code != 200:
+                print(f"❌ FOFA HTTP 错误: {resp.status_code}")
+                return []
+
+            data = resp.json()
+            if data.get('error'):
+                print(f"❌ FOFA API 错误: {data.get('errmsg')}")
+                return []
+
+            results = data.get('results', [])
+            return self._parse_results(results)
+
+        except Exception as e:
+            print(f"💥 FOFA 请求异常: {e}")
+            return []
+
+    def search_by_domain(self, domain, total_size=3000):
         """VIP 账户完整扫描"""
         if not self.key.strip():
             print("❌ FOFA 密钥未配置")
@@ -49,7 +88,7 @@ class FofaClient:
         print(f"🔍 FOFA 查询语法: {query}")
 
         all_results = []
-        page_size = 10000  # VIP 单次最大
+        page_size = 3000 # VIP 单次最大
         max_pages = (total_size + page_size - 1) // page_size
 
         for page in range(1, min(max_pages, 2) + 1):  # 最多2页（20,000条）
@@ -104,6 +143,7 @@ class FofaClient:
 
         print(f"🎯 FOFA 总共获取 {len(all_results)} 条有效资产")
         return all_results
+
 
 
     def _parse_results(self, results):

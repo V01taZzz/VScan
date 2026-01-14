@@ -59,6 +59,64 @@ class QuakeClient:
             print(f"💥 Quake 验证异常: {e}")
             return False
 
+    def search_by_query(self, query, total_size=100):
+        """使用自定义查询语法进行搜索"""
+        if not self.key.strip():
+            print("❌ Quake 密钥未配置")
+            return []
+
+        all_results = []
+        page_size = 100
+        start = 0
+        pages_fetched = 0
+        max_pages = min((total_size + page_size - 1) // page_size, 100)
+
+        while start < total_size and pages_fetched < max_pages:
+            try:
+                headers = {'X-QuakeToken': self.key, 'Content-Type': 'application/json'}
+                data = {
+                    "query": query,
+                    "start": start,
+                    "size": min(page_size, total_size - len(all_results))
+                }
+
+                resp = requests.post(
+                    'https://quake.360.net/api/v3/search/quake_service',
+                    headers=headers,
+                    json=data,
+                    timeout=30
+                )
+
+                if resp.status_code != 200:
+                    print(f"❌ Quake HTTP 错误: {resp.status_code}")
+                    break
+
+                data_resp = resp.json()
+                if data_resp.get('code') != 0:
+                    error_msg = data_resp.get('message', 'Unknown error')
+                    print(f"❌ Quake API 错误: {error_msg}")
+                    break
+
+                results = data_resp.get('data', [])
+                if not results:
+                    break
+
+                parsed_results = self._parse_results(results)
+                all_results.extend(parsed_results)
+
+                if len(results) < min(page_size, total_size - len(all_results)):
+                    break
+
+                start += len(results)
+                pages_fetched += 1
+                time.sleep(0.5)
+
+            except Exception as e:
+                print(f"💥 Quake 请求失败: {e}")
+                break
+
+        return all_results
+
     def search_by_domain(self, domain, total_size=100):
         """Quake 完整扫描 - 使用正确的域名"""
         if not self.key.strip():

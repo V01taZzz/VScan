@@ -163,13 +163,24 @@ class ConfigDialog:
         """当 FOFA 密钥被修改时，重置验证状态"""
         current_value = self.fofa_key_var.get()
         if current_value != self.current_fofa_key:
-            self.fofa_status_label.config(text="未验证", fg="red")
+            # ✅ 关键修复：只有当之前是"可用"状态时才重置为"未验证"
+            # 如果之前是"不可用"，保持"不可用"状态
+            if self.config['api']['fofa']['validated']:
+                self.fofa_status_label.config(text="未验证", fg="red")
+            else:
+                # 保持当前状态（可能是"不可用"或"未验证"）
+                pass
 
     def on_quake_key_change(self):
         """当 Quake 密钥被修改时，重置验证状态"""
         current_value = self.quake_key_var.get()
         if current_value != self.current_quake_key:
-            self.quake_status_label.config(text="未验证", fg="red")
+            # ✅ 关键修复：只有当之前是"可用"状态时才重置为"未验证"
+            if self.config['api']['quake']['validated']:
+                self.quake_status_label.config(text="未验证", fg="red")
+            else:
+                # 保持当前状态（可能是"不可用"或"未验证"）
+                pass
 
     def update_validation_status(self):
         """根据配置中的验证状态更新UI显示"""
@@ -178,7 +189,11 @@ class ConfigDialog:
             self.fofa_status_label.config(text="可用", fg="green")
         else:
             if self.current_fofa_key:
-                self.fofa_status_label.config(text="未验证", fg="red")
+                # ✅ 关键修复：区分"不可用"和"未验证"状态
+                if hasattr(self, '_fofa_invalid') and self._fofa_invalid:
+                    self.fofa_status_label.config(text="不可用", fg="red")
+                else:
+                    self.fofa_status_label.config(text="未验证", fg="red")
             else:
                 self.fofa_status_label.config(text="未设置", fg="red")
 
@@ -187,7 +202,11 @@ class ConfigDialog:
             self.quake_status_label.config(text="可用", fg="green")
         else:
             if self.current_quake_key:
-                self.quake_status_label.config(text="未验证", fg="red")
+                # ✅ 关键修复：区分"不可用"和"未验证"状态
+                if hasattr(self, '_quake_invalid') and self._quake_invalid:
+                    self.quake_status_label.config(text="不可用", fg="red")
+                else:
+                    self.quake_status_label.config(text="未验证", fg="red")
             else:
                 self.quake_status_label.config(text="未设置", fg="red")
 
@@ -199,12 +218,23 @@ class ConfigDialog:
                 if client.validate_key():
                     self.fofa_status_label.config(text="可用", fg="green")
                     self.config['api']['fofa']['validated'] = True
+                    self.current_fofa_key = key
+                    # 清除不可用标记
+                    if hasattr(self, '_fofa_invalid'):
+                        delattr(self, '_fofa_invalid')
                 else:
                     self.fofa_status_label.config(text="不可用", fg="red")
                     self.config['api']['fofa']['validated'] = False
+                    self.current_fofa_key = key
+                    # ✅ 关键修复：标记为不可用状态
+                    self._fofa_invalid = True
             else:
                 self.fofa_status_label.config(text="未设置", fg="red")
                 self.config['api']['fofa']['validated'] = False
+                self.current_fofa_key = ""
+                # 清除不可用标记
+                if hasattr(self, '_fofa_invalid'):
+                    delattr(self, '_fofa_invalid')
 
         elif engine == 'quake':
             key = self.quake_key_var.get().strip()
@@ -213,32 +243,50 @@ class ConfigDialog:
                 if client.validate_key():  # ← 调用新的验证方法
                     self.quake_status_label.config(text="可用", fg="green")
                     self.config['api']['quake']['validated'] = True
+                    self.current_quake_key = key
+                    # 清除不可用标记
+                    if hasattr(self, '_quake_invalid'):
+                        delattr(self, '_quake_invalid')
                 else:
                     self.quake_status_label.config(text="不可用", fg="red")
                     self.config['api']['quake']['validated'] = False
+                    self.current_quake_key = key
+                    # ✅ 关键修复：标记为不可用状态
+                    self._quake_invalid = True
             else:
                 self.quake_status_label.config(text="未设置", fg="red")
                 self.config['api']['quake']['validated'] = False
+                self.current_quake_key = ""
+                # 清除不可用标记
+                if hasattr(self, '_quake_invalid'):
+                    delattr(self, '_quake_invalid')
 
     def save_config(self):
         # 保存密钥和验证状态
-        fofa_key = self.fofa_key_var.get()
-        quake_key = self.quake_key_var.get()
+        fofa_key = self.fofa_key_var.get().strip()
+        quake_key = self.quake_key_var.get().strip()
+
+        # ✅ 关键修复：验证状态基于当前输入的密钥
+        fofa_validated = self.config['api']['fofa']['validated'] and (fofa_key == self.current_fofa_key)
+        quake_validated = self.config['api']['quake']['validated'] and (quake_key == self.current_quake_key)
 
         config_to_save = {
             'api': {
                 'fofa': {
                     'key': fofa_key,
-                    'validated': self.config['api']['fofa']['validated'] if fofa_key == self.current_fofa_key else False
+                    'validated': fofa_validated
                 },
                 'quake': {
                     'key': quake_key,
-                    'validated': self.config['api']['quake'][
-                        'validated'] if quake_key == self.current_quake_key else False
+                    'validated': quake_validated
                 }
             }
         }
 
         save_config(config_to_save)
         messagebox.showinfo("成功", "配置已保存！")
+        self.dialog.destroy()
+
+    def cancel_config(self):
+        """取消按钮"""
         self.dialog.destroy()

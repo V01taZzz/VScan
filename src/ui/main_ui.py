@@ -41,10 +41,28 @@ class SecurityScannerGUI:
         search_frame = tk.Frame(self.root, padx=10, pady=10)
         search_frame.pack(fill="x")
 
-        tk.Label(search_frame, text="目标域名:").pack(side="left")
+        # 字段选择下拉框
+        tk.Label(search_frame, text="字段:").pack(side="left")
+        self.field_var = StringVar(value="域名")
+        field_combo = ttk.Combobox(
+            search_frame,
+            textvariable=self.field_var,
+            values=["域名", "IP", "端口", "标题", "icon", "body", "自定义"],
+            state="readonly",
+            width=8
+        )
+        field_combo.pack(side="left", padx=5)
+        field_combo.bind('<<ComboboxSelected>>', self.on_field_change)
+
+        # 目标输入框
         self.target_var = StringVar(value="baidu.com")
         target_entry = tk.Entry(search_frame, textvariable=self.target_var, width=30)
         target_entry.pack(side="left", padx=5)
+
+        # 提示标签
+        self.hint_var = StringVar(value="请输入域名，如: baidu.com")
+        hint_label = tk.Label(search_frame, textvariable=self.hint_var, fg="gray", font=("Segoe UI", 8))
+        hint_label.pack(side="left", padx=5)
 
         # 引擎选择下拉框
         tk.Label(search_frame, text="引擎:").pack(side="left", padx=(10, 0))
@@ -58,6 +76,7 @@ class SecurityScannerGUI:
         )
         engine_combo.pack(side="left", padx=5)
 
+        # AI分析勾选框
         self.ai_var = BooleanVar(value=True)
         ai_check = tk.Checkbutton(search_frame, text="启用AI分析", variable=self.ai_var)
         ai_check.pack(side="left", padx=10)
@@ -68,12 +87,16 @@ class SecurityScannerGUI:
         export_btn = tk.Button(search_frame, text="导出 CSV", command=self.export_csv)
         export_btn.pack(side="left", padx=5)
 
-        # 配置按钮
         config_btn = tk.Button(
             search_frame, text="配置API", command=self.open_config_dialog,
             bg="#6c757d", fg="white"
         )
         config_btn.pack(side="right", padx=(0, 10))
+
+        # 状态栏
+        self.status_var = StringVar(value="就绪")
+        status_label = tk.Label(search_frame, textvariable=self.status_var, fg="blue")
+        status_label.pack(side="right")
 
     def create_table(self):
         table_frame = tk.Frame(self.root)
@@ -99,6 +122,77 @@ class SecurityScannerGUI:
         hsb.grid(row=1, column=0, sticky="ew")
         table_frame.grid_rowconfigure(0, weight=1)
         table_frame.grid_columnconfigure(0, weight=1)
+
+    def on_field_change(self, event=None):
+        """当字段选择改变时更新提示"""
+        field = self.field_var.get()
+        hints = {
+            "域名": "请输入域名，如: baidu.com",
+            "IP": "请输入IP地址，如: 1.1.1.1",
+            "端口": "请输入端口号，如: 80",
+            "标题": "请输入页面标题关键词，如: 百度",
+            "icon": "请输入icon_hash值，如: 123456789",
+            "body": "请输入页面内容关键词，如: nginx",
+            "自定义": "请输入完整查询语句"
+        }
+        self.hint_var.set(hints.get(field, ""))
+
+    def build_search_query(self, field, value, engine):
+        """根据字段、值和引擎构建查询语法"""
+        if not value.strip():
+            return ""
+
+        value = value.strip()
+
+        if field == "自定义":
+            return value  # 自定义字段直接返回原内容
+
+        if engine == "fofa":
+            return self._build_fofa_query(field, value)
+        elif engine == "quake":
+            return self._build_quake_query(field, value)
+        else:
+            return ""
+
+    def _build_fofa_query(self, field, value):
+        """构建 FOFA 查询语法"""
+        field_map = {
+            "域名": "domain",
+            "IP": "ip",
+            "端口": "port",
+            "标题": "title",
+            "icon": "icon_hash",
+            "body": "body"
+        }
+
+        fofa_field = field_map.get(field, "domain")
+
+        # 特殊处理 icon_hash 和端口（数字类型）
+        if field in ["icon", "端口"] and value.isdigit():
+            return f'{fofa_field}="{value}"'
+        else:
+            return f'{fofa_field}="{value}"'
+
+    def _build_quake_query(self, field, value):
+        """构建 Quake 查询语法"""
+        if field == "域名":
+            return f'domain:"{value}"'
+        elif field == "IP":
+            return f'ip:"{value}"'
+        elif field == "端口":
+            if value.isdigit():
+                return f'port:{value}'
+            else:
+                return f'port:"{value}"'
+        elif field == "标题":
+            return f'title:"{value}"'
+        elif field == "icon":
+            # Quake 不支持 icon_hash，使用 body 包含
+            return f'body:"{value}"'
+        elif field == "body":
+            return f'body:"{value}"'
+        else:
+            return f'domain:"{value}"'
 
     def on_url_double_click(self, event):
         """处理 URL 双击事件"""
@@ -131,8 +225,12 @@ class SecurityScannerGUI:
         status_label.pack(side="left")
 
     def open_config_dialog(self):
-        ConfigDialog(self.root, self.config)
-        # 重新加载配置
+        dialog = ConfigDialog(self.root, self.config)
+
+        # 等待对话框关闭（模态对话框会阻塞直到关闭）
+        self.root.wait_window(dialog.dialog)
+
+        # 对话框关闭后重新加载配置
         self.config = load_config()
         if self.config is None:
             self.config = {}
@@ -143,11 +241,13 @@ class SecurityScannerGUI:
 
         target = self.target_var.get().strip()
         if not target:
-            messagebox.showwarning("错误", "请输入目标域名")
+            messagebox.showwarning("错误", "请输入搜索内容")
             return
 
-        # 检查 API 密钥是否已配置
+        # 获取引擎选择
         engine = self.engine_var.get()
+
+        # 检查 API 密钥
         fofa_key = self.config.get('api', {}).get('fofa', {}).get('key', '').strip()
         quake_key = self.config.get('api', {}).get('quake', {}).get('key', '').strip()
 
@@ -170,24 +270,29 @@ class SecurityScannerGUI:
 
     def scan_worker(self, target, engine):
         results = []
+        field = self.field_var.get()
 
         if engine in ["全部", "FOFA"]:
             fofa_key = self.config.get('api', {}).get('fofa', {}).get('key', '')
             if fofa_key:
-                fofa = FofaClient(fofa_key)
-                results.extend(fofa.search_by_domain(target))
+                fofa_query = self.build_search_query(field, target, "fofa")
+                if fofa_query:
+                    fofa = FofaClient(fofa_key)
+                    results.extend(fofa.search_by_query(fofa_query))
 
         if engine in ["全部", "Quake"]:
             quake_key = self.config.get('api', {}).get('quake', {}).get('key', '')
             if quake_key:
-                quake = QuakeClient(quake_key)
-                results.extend(quake.search_by_domain(target))
+                quake_query = self.build_search_query(field, target, "quake")
+                if quake_query:
+                    quake = QuakeClient(quake_key)
+                    results.extend(quake.search_by_query(quake_query))
 
         # 去重
         seen = set()
         unique_results = []
         for r in results:
-            host = r['host']
+            host = r.get('host', '')
             if host and host not in seen:
                 seen.add(host)
                 unique_results.append(r)
@@ -222,6 +327,7 @@ class SecurityScannerGUI:
 
         self.status_var.set(f"扫描完成，共发现 {len(results)} 个资产")
         self.is_scanning = False
+
     def clear_results(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
