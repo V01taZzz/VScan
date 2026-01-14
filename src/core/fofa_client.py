@@ -1,4 +1,12 @@
 # core/fofa_client.py
+# -*- coding: utf-8 -*-
+"""
+同源资产侦察助手 - VScan
+Date: 2026/1/13
+版本: 1.2.0
+Design by V01ta
+"""
+
 import base64
 import requests
 import time
@@ -57,7 +65,7 @@ class FofaClient:
                     'fields': 'host,ip,port,protocol,title,domain'
                 }
 
-                print(f"📡 请求第 {page} 页，参数: size={params['size']}")
+                # print(f"📡 请求第 {page} 页，参数: size={params['size']}")
                 resp = requests.get(
                     'https://fofa.info/api/v1/search/all',
                     params=params,
@@ -97,44 +105,45 @@ class FofaClient:
         print(f"🎯 FOFA 总共获取 {len(all_results)} 条有效资产")
         return all_results
 
+
     def _parse_results(self, results):
-        """解析 FOFA 结果"""
-        parsed_results = []
+            """解析 FOFA 结果"""
+            parsed_results = []
 
-        for r in results:
-            if not isinstance(r, list) or len(r) < 3:
-                continue
+            for r in results:
+                if not isinstance(r, list) or len(r) < 3:
+                    continue
 
-            host = r[0].strip() if r[0] else ''
+                host = r[0].strip() if r[0] else ''
 
-            # 清理 host（移除协议）
-            if host.startswith(('http://', 'https://')):
-                from urllib.parse import urlparse
-                host = urlparse(host).netloc
+                # 清理 host（移除协议）
+                if host.startswith(('http://', 'https://')):
+                    from urllib.parse import urlparse
+                    host = urlparse(host).netloc
 
-            # 提取 IP 和端口
-            ip = r[1] if len(r) > 1 and r[1] else ''
-            port = r[2] if len(r) > 2 and r[2] else ''
+                # 提取 IP 和端口
+                ip = r[1] if len(r) > 1 and r[1] else ''
+                port = r[2] if len(r) > 2 and r[2] else ''
 
-            # 协议推断
-            protocol = 'https' if str(port) == '443' else 'http'
-            if len(r) > 3 and r[3]:
-                protocol = r[3]
+                # 协议推断
+                protocol = 'https' if str(port) == '443' else 'http'
+                if len(r) > 3 and r[3]:
+                    protocol = r[3]
 
-            # 标题
-            title = r[4] if len(r) > 4 and r[4] else ''
+                # 标题
+                title = r[4] if len(r) > 4 and r[4] else ''
 
-            # 域名
-            domain_field = r[5] if len(r) > 5 and r[5] else host
+                # 域名
+                domain_field = r[5] if len(r) > 5 and r[5] else host
 
-            parsed_results.append({
-                'host': host,
-                'ip': ip,
-                'port': port,
-                'protocol': protocol,
-                'title': title,
-                'domain': domain_field,
-                'source': 'fofa'
-            })
+                parsed_results.append({
+                    'host': host,
+                    'ip': ip,
+                    'port': port,
+                    'protocol': protocol,
+                    'title': title,
+                    'domain': domain_field,
+                    'source': 'fofa'
+                })
 
-        return parsed_results
+            return parsed_results

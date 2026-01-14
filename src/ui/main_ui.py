@@ -6,20 +6,21 @@ Date: 2026/1/13
 版本: 1.2.0
 Design by V01ta
 """
+
 import webbrowser
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, StringVar, BooleanVar, END
-from .config_ui import ConfigDialog
-from ..core.config_manager import load_config
-from ..core.fofa_client import FofaClient
-from ..core.quake_client import QuakeClient
+from src.ui.config_ui import ConfigDialog
+from src.core.config_manager import load_config
+from src.core.fofa_client import FofaClient
+from src.core.quake_client import QuakeClient
 
 
 class SecurityScannerGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("安全空间测绘 - tkinter 版")
+        self.root.title("VScan安全空间测绘 - 金小白特供版")
         self.root.geometry("1000x600")
         self.root.minsize(800, 500)
 

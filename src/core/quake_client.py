@@ -1,4 +1,11 @@
 # core/quake_client.py
+# -*- coding: utf-8 -*-
+"""
+同源资产侦察助手 - VScan
+Date: 2026/1/13
+版本: 1.2.0
+Design by V01ta
+"""
 import requests
 import time
 

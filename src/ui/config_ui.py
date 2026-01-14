@@ -5,14 +5,11 @@ Date:2026/1/13
 版本: 1.0.0
 Design by V01ta
 """
-# src/ui/config_ui.py
-# -*- coding: utf-8 -*-
 """
 API 配置界面
 """
 import tkinter as tk
 from tkinter import Toplevel, StringVar, messagebox
-# 修复导入路径 - 使用绝对导入
 from src.core.config_manager import load_config, save_config
 from src.core.fofa_client import FofaClient
 from src.core.quake_client import QuakeClient
@@ -47,8 +44,43 @@ class ConfigDialog:
         self.dialog.title("API Key配置")
         self.dialog.geometry("450x180")
         self.dialog.resizable(False, False)
+
+        try:
+            # 定义对话框尺寸
+            dialog_w = 500
+            dialog_h = 180
+
+            # 获取主窗口的位置和尺寸
+            parent_x = self.parent.winfo_x()
+            parent_y = self.parent.winfo_y()
+            parent_width = self.parent.winfo_width()
+            parent_height = self.parent.winfo_height()
+
+            # 如果主窗口尺寸为0（刚启动时），使用默认值
+            if parent_width == 0 or parent_height == 0:
+                parent_width = 1000
+                parent_height = 600
+
+            # 计算弹窗应该出现的位置（主窗口正中心）
+            dialog_x = parent_x + (parent_width - dialog_w) // 2
+            dialog_y = parent_y + (parent_height - dialog_h) // 2
+
+            # 确保弹窗不会出现在屏幕外
+            screen_width = self.parent.winfo_screenwidth()
+            screen_height = self.parent.winfo_screenheight()
+            dialog_x = max(0, min(dialog_x, screen_width - dialog_w))
+            dialog_y = max(0, min(dialog_y, screen_height - dialog_h))
+
+            # 设置弹窗位置
+            self.dialog.geometry(f"{dialog_w}x{dialog_h}+{dialog_x}+{dialog_y}")
+        except Exception as e:
+            # 如果计算失败，tkinter 会自动处理位置
+            pass
+
         self.dialog.transient(self.parent)
         self.dialog.grab_set()
+
+
 
         # FOFA Key - 明文显示（关键：不设置 show="*"）
         tk.Label(self.dialog, text="FOFA Key:").grid(row=0, column=0, sticky="w", padx=20, pady=10)
