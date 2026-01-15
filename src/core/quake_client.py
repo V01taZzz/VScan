@@ -59,7 +59,7 @@ class QuakeClient:
             print(f"💥 Quake 验证异常: {e}")
             return False
 
-    def search_by_query(self, query, total_size=100):
+    def search_by_query(self, query, total_size=10):
         """使用自定义查询语法进行搜索"""
         if not self.key.strip():
             print("❌ Quake 密钥未配置")
@@ -117,7 +117,7 @@ class QuakeClient:
 
         return all_results
 
-    def search_by_domain(self, domain, total_size=100):
+    def search_by_domain(self, domain, total_size=10):
         """Quake 完整扫描 - 使用正确的域名"""
         if not self.key.strip():
             print("❌ Quake 密钥未配置")
