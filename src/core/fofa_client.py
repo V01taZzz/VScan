@@ -1,4 +1,3 @@
-# core/fofa_client.py
 # -*- coding: utf-8 -*-
 """
 同源资产侦察助手 - VScan

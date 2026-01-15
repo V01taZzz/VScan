@@ -5,7 +5,7 @@ Date:2026/1/12
 版本: 1.0.0
 Design by V01ta
 """
-# src/core/config_manager.py
+
 import yaml
 from pathlib import Path
 

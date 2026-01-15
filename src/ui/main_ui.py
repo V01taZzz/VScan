@@ -1,4 +1,3 @@
-# ui/main_ui.py
 # -*- coding: utf-8 -*-
 """
 同源资产侦察助手 - VScan

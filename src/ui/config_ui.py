@@ -5,9 +5,6 @@ Date:2026/1/13
 版本: 1.0.0
 Design by V01ta
 """
-"""
-API 配置界面
-"""
 import tkinter as tk
 from tkinter import Toplevel, StringVar, messagebox
 from src.core.config_manager import load_config, save_config
