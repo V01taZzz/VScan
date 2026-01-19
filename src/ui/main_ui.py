@@ -14,6 +14,7 @@ from src.ui.config_ui import ConfigDialog
 from src.core.config_manager import load_config
 from src.core.fofa_client import FofaClient
 from src.core.quake_client import QuakeClient
+import time
 
 
 class SecurityScannerGUI:
@@ -27,6 +28,9 @@ class SecurityScannerGUI:
         self.config = load_config()
         if self.config is None:
             self.config = {}
+
+        # 检查 Ollama 是否可用
+        self.ollama_available = self.check_ollama_available()
 
         # 创建 UI
         self.create_widgets()
@@ -101,8 +105,23 @@ class SecurityScannerGUI:
         engine_combo.pack(side="left", padx=5)
 
         # AI分析勾选框
-        self.ai_var = BooleanVar(value=True)
-        ai_check = tk.Checkbutton(search_frame, text="启用AI分析", variable=self.ai_var)
+        # self.ai_var = BooleanVar(value=True)
+        # ai_check = tk.Checkbutton(search_frame, text="启用AI分析", variable=self.ai_var)
+        # ai_check.pack(side="left", padx=10)
+        if self.ollama_available:
+            ai_text = "启用AI分析（Ollama）"
+            ai_state = "normal"
+        else:
+            ai_text = "启用AI分析（需Ollama）"
+            ai_state = "disabled"
+
+        self.ai_var = BooleanVar(value=self.ollama_available)  # 默认开启如果可用
+        ai_check = tk.Checkbutton(
+            search_frame,
+            text=ai_text,
+            variable=self.ai_var,
+            state=ai_state
+        )
         ai_check.pack(side="left", padx=10)
 
         scan_btn = tk.Button(search_frame, text="查询", command=self.start_scan, bg="#0d6efd", fg="white")
@@ -329,14 +348,124 @@ class SecurityScannerGUI:
                 seen.add(host)
                 unique_results.append(r)
 
-        # 更新 UI
-        self.root.after(0, self.update_results, unique_results)
+        # AI 分析 - 在后台线程中执行
+        if self.ai_var.get() and getattr(self, 'ollama_available', False):
+            # 启动 AI 分析线程
+            ai_thread = threading.Thread(
+                target=self.perform_ai_analysis_background,
+                args=(unique_results,),
+                daemon=True
+            )
+            ai_thread.start()
+        else:
+            self.root.after(0, self.update_results, unique_results)
+
+    def perform_ai_analysis(self, results):
+        """执行 AI 分析 - 只打标签，不判断有效性"""
+        try:
+            from src.core.ollama_analyzer import OllamaAnalyzer
+
+            self.status_var.set("正在进行AI分析...")
+
+            # 创建分析器
+            model_name = getattr(self, 'ollama_model', 'qwen3-coder:30b')
+            analyzer = OllamaAnalyzer(model=model_name)
+
+            # 对每个网站进行AI分析并打标签
+            for i, item in enumerate(results):
+                print(f"AI分析网站 {i + 1}/{len(results)}...")
+                ai_result = analyzer.analyze_website(item)
+                item['ai_analysis'] = ai_result
+                time.sleep(0.2)
+
+            self.root.after(0, self.update_results, results)
+
+        except Exception as e:
+            print(f"AI 分析异常: {e}")
+            self.status_var.set("AI分析失败，显示原始结果")
+            self.root.after(0, self.update_results, results)
+
+    def perform_ai_analysis_background(self, results):
+        """在后台线程中执行 AI 分析（带详细调试）"""
+        try:
+            from src.core.ollama_analyzer import OllamaAnalyzer
+
+            self.root.after(0, lambda: self.status_var.set("正在进行AI分析..."))
+
+            print("=== AI 分析开始 ===")
+            print(f"分析 {len(results)} 个网站")
+
+            model_name = getattr(self, 'ollama_model', 'qwen3-coder:30b')
+            print(f"使用模型: {model_name}")
+
+            analyzer = OllamaAnalyzer(model=model_name)
+            print("OllamaAnalyzer 创建成功")
+
+            for i, item in enumerate(results):
+                host = item.get('host', 'N/A')
+                title = item.get('title', 'N/A')
+                print(f"分析 {i + 1}/{len(results)}: {host} - {title}")
+
+                ai_result = analyzer.analyze_website(item)
+                print(f"结果: {ai_result}")
+                item['ai_analysis'] = ai_result
+
+            print("=== AI 分析完成 ===")
+            self.root.after(0, self.update_results, results)
+
+        except Exception as e:
+            import traceback
+            print("=== AI 分析完全失败 ===")
+            print(f"错误: {e}")
+            traceback.print_exc()
+            self.root.after(0, lambda: self.status_var.set("AI分析失败"))
+            self.root.after(0, self.update_results, results)
+
+    def check_ollama_available(self):
+        """检查 Ollama 是否可用"""
+        try:
+            import requests
+            resp = requests.get("http://localhost:11434/api/tags", timeout=5)
+            if resp.status_code == 200:
+                models = resp.json().get('models', [])
+                # 检查是否有 qwen3-coder 模型
+                coder_models = [m for m in models if 'qwen3-coder' in m.get('name', '').lower()]
+                if coder_models:
+                    self.ollama_model = coder_models[0]['name']
+                    print(f"✅ 检测到 Ollama 模型: {self.ollama_model}")
+                    return True
+                else:
+                    # 检查其他 qwen 模型
+                    qwen_models = [m for m in models if 'qwen' in m.get('name', '').lower()]
+                    if qwen_models:
+                        self.ollama_model = qwen_models[0]['name']
+                        print(f"⚠️ 未找到 qwen3-coder，使用备选模型: {self.ollama_model}")
+                        return True
+                    else:
+                        print("⚠️ Ollama 可用，但未找到 Qwen 相关模型")
+                        return False
+        except Exception as e:
+            print(f"❌ Ollama 不可用: {e}")
+            return False
 
     def update_results(self, results):
         for i, item in enumerate(results, 1):
-            ai_status = "✅有效" if self.ai_var.get() else "-"
+            # AI 分析结果处理 - 只显示标签，不判断有效性
+            if self.ai_var.get() and 'ai_analysis' in item:
+                ai_result = item['ai_analysis']
+                tags = ai_result.get('tags', [])
 
-            # 构建完整的 URL
+                if tags:
+                    # 取前2-3个标签显示
+                    display_tags = " ".join(tags[:3])
+                    ai_status = f"🏷️{display_tags}"
+                else:
+                    ai_status = "✅AI分析"
+
+            else:
+                ai_status = "✅有效" if self.ai_var.get() else "-"
+
+            # 构建 URL 显示
             host = item['host']
             port = item['port']
             protocol = item['protocol']
@@ -359,6 +488,32 @@ class SecurityScannerGUI:
 
         self.status_var.set(f"扫描完成，共发现 {len(results)} 个资产")
         self.is_scanning = False
+        # for i, item in enumerate(results, 1):
+        #     ai_status = "✅有效" if self.ai_var.get() else "-"
+        #
+        #     # 构建完整的 URL
+        #     host = item['host']
+        #     port = item['port']
+        #     protocol = item['protocol']
+        #
+        #     if port in ['80', '443']:
+        #         display_url = f"{protocol}://{host}"
+        #     else:
+        #         display_url = f"{protocol}://{host}:{port}"
+        #
+        #     self.tree.insert("", END, values=(
+        #         i,
+        #         display_url,
+        #         item['ip'],
+        #         item['port'],
+        #         item['protocol'],
+        #         item['title'][:50],
+        #         item['source'],
+        #         ai_status
+        #     ))
+        #
+        # self.status_var.set(f"扫描完成，共发现 {len(results)} 个资产")
+        # self.is_scanning = False
 
     def clear_results(self):
         for item in self.tree.get_children():
