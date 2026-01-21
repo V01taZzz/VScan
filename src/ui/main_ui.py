@@ -488,6 +488,32 @@ class SecurityScannerGUI:
 
         self.status_var.set(f"扫描完成，共发现 {len(results)} 个资产")
         self.is_scanning = False
+        # for i, item in enumerate(results, 1):
+        #     ai_status = "✅有效" if self.ai_var.get() else "-"
+        #
+        #     # 构建完整的 URL
+        #     host = item['host']
+        #     port = item['port']
+        #     protocol = item['protocol']
+        #
+        #     if port in ['80', '443']:
+        #         display_url = f"{protocol}://{host}"
+        #     else:
+        #         display_url = f"{protocol}://{host}:{port}"
+        #
+        #     self.tree.insert("", END, values=(
+        #         i,
+        #         display_url,
+        #         item['ip'],
+        #         item['port'],
+        #         item['protocol'],
+        #         item['title'][:50],
+        #         item['source'],
+        #         ai_status
+        #     ))
+        #
+        # self.status_var.set(f"扫描完成，共发现 {len(results)} 个资产")
+        # self.is_scanning = False
 
 
     def clear_results(self):
