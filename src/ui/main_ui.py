@@ -87,7 +87,7 @@ class SecurityScannerGUI:
         self.target_entry = tk.Entry(search_frame, textvariable=self.target_var, width=30)
         self.target_entry.pack(side="left", padx=5)
         # 添加占位符设置和事件绑定
-        self.set_placeholder("baidu.com")
+        self.set_placeholder("请输入域名，如: baidu.com")
         self.target_entry.bind('<FocusIn>', self.on_entry_focus_in)
         self.target_entry.bind('<FocusOut>', self.on_entry_focus_out)
 
@@ -178,7 +178,7 @@ class SecurityScannerGUI:
             "body": "请输入页面内容关键词，如: nginx",
             "自定义": "请输入完整查询语句"
         }
-        placeholder = placeholders.get(field, "baidu.com")
+        placeholder = placeholders.get(field, "请输入域名，如: baidu.com")
         self.set_placeholder(placeholder)  # ← 改这里
 
     def build_search_query(self, field, value, engine):
