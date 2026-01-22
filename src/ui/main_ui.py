@@ -140,6 +140,14 @@ class SecurityScannerGUI:
         export_btn = tk.Button(search_frame, text="导出 CSV", command=self.export_csv)
         export_btn.pack(side="left", padx=5)
 
+        # 导入Excel按钮（新增）
+        import_excel_btn = tk.Button(
+            search_frame, text="导入Excel", command=self.import_excel,
+            bg="#ffc107", fg="black"
+        )
+        import_excel_btn.pack(side="right", padx=(0, 10))
+
+        # 配置API按钮
         config_btn = tk.Button(
             search_frame, text="配置API", command=self.open_config_dialog,
             bg="#6c757d", fg="white"
@@ -299,6 +307,39 @@ class SecurityScannerGUI:
         self.config = load_config()
         if self.config is None:
             self.config = {}
+
+    def import_excel(self):
+        """从Excel文件导入目标字段（简化版）"""
+        try:
+            import pandas as pd
+            from tkinter import filedialog
+
+            file_path = filedialog.askopenfilename(
+                title="选择Excel文件",
+                filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+            )
+
+            if not file_path:
+                return
+
+            # 读取Excel文件的第一列
+            df = pd.read_excel(file_path, header=None)
+            targets = [str(val).strip() for val in df.iloc[:, 0] if pd.notna(val) and str(val).strip()]
+
+            if not targets:
+                messagebox.showwarning("警告", "未找到有效的目标字段！")
+                return
+
+            self.target_text.delete("1.0", "end")
+            self.target_text.insert("1.0", "\n".join(targets))
+            self.target_text.config(fg="black")
+
+            messagebox.showinfo("成功", f"成功导入 {len(targets)} 个目标字段！")
+
+        except ImportError:
+            messagebox.showerror("错误", "缺少必要的依赖库！\n请运行: pip install pandas openpyxl")
+        except Exception as e:
+            messagebox.showerror("错误", f"导入Excel失败: {str(e)}")
 
     def get_targets_from_text(self):
         """从多行文本框获取目标列表"""
