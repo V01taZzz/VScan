@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 同源资产侦察助手 - VScan
-Date: 2026/1/13
+Date: 2026/1/22
 版本: 1.2.0
 Design by V01ta
 """
@@ -34,26 +34,51 @@ class SecurityScannerGUI:
 
         # 创建 UI
         self.create_widgets()
-        self.create_table()
+        self.create_notebook()  # 替换 create_table
         self.create_status_bar()
 
         # 状态变量
         self.is_scanning = False
 
     def set_placeholder(self, placeholder_text):
-        self.placeholder_text = placeholder_text
-        self.target_var.set(placeholder_text)
-        self.target_entry.config(fg="gray")
+        """设置占位符（用于兼容性，实际使用多行文本框）"""
+        pass
 
     def on_entry_focus_in(self, event):
-        if self.target_var.get() == self.placeholder_text:
-            self.target_var.set("")
-            self.target_entry.config(fg="black")
+        """单行输入框焦点事件（已废弃）"""
+        pass
 
     def on_entry_focus_out(self, event):
-        if not self.target_var.get().strip():
-            self.target_var.set(self.placeholder_text)
-            self.target_entry.config(fg="gray")
+        """单行输入框焦点事件（已废弃）"""
+        pass
+
+    def on_target_focus_in(self, event):
+        """目标输入框获得焦点"""
+        current_placeholder = self.get_current_placeholder()
+        if self.target_text.get("1.0", "end-1c") == current_placeholder:
+            self.target_text.delete("1.0", "end")
+            self.target_text.config(fg="black")
+
+    def on_target_focus_out(self, event):
+        """目标输入框失去焦点"""
+        if not self.target_text.get("1.0", "end-1c").strip():
+            current_placeholder = self.get_current_placeholder()
+            self.target_text.insert("1.0", current_placeholder)
+            self.target_text.config(fg="gray")
+
+    def get_current_placeholder(self):
+        """获取当前字段对应的占位符"""
+        field = self.field_var.get()
+        placeholders = {
+            "域名": "请输入域名，如: baidu.com",
+            "IP": "请输入IP地址，如: 1.1.1.1",
+            "端口": "请输入端口号，如: 80",
+            "标题": "请输入页面标题关键词，如: 百度",
+            "icon": "请输入icon_hash值，如: 123456789",
+            "body": "请输入页面内容关键词，如: nginx",
+            "自定义": "请输入完整查询语句"
+        }
+        return placeholders.get(field, "请输入域名，如: baidu.com")
 
     def create_widgets(self):
         search_frame = tk.Frame(self.root, padx=10, pady=10)
@@ -72,25 +97,13 @@ class SecurityScannerGUI:
         field_combo.pack(side="left", padx=5)
         field_combo.bind('<<ComboboxSelected>>', self.on_field_change)
 
-        # 目标输入框
-        # self.target_var = StringVar(value="baidu.com")
-        # target_entry = tk.Entry(search_frame, textvariable=self.target_var, width=30)
-        # target_entry.pack(side="left", padx=5)
-
-        # 提示标签
-        self.hint_var = StringVar(value="请输入域名，如: baidu.com")
-        # hint_label = tk.Label(search_frame, textvariable=self.hint_var, fg="gray", font=("Segoe UI", 8))
-        # hint_label.pack(side="left", padx=5)
-
-        # 修改输入框创建部分
-        self.target_var = StringVar()
-        self.target_entry = tk.Entry(search_frame, textvariable=self.target_var, width=30)
-        self.target_entry.pack(side="left", padx=5)
-        # 添加占位符设置和事件绑定
-        self.set_placeholder("请输入域名，如: baidu.com")
-        self.target_entry.bind('<FocusIn>', self.on_entry_focus_in)
-        self.target_entry.bind('<FocusOut>', self.on_entry_focus_out)
-
+        # 目标输入框（多行文本框，保留原有占位符格式）
+        self.target_text = tk.Text(search_frame, height=3, width=30)
+        self.target_text.pack(side="left", padx=5)
+        self.target_text.insert("1.0", "请输入域名，如: baidu.com")
+        self.target_text.bind('<FocusIn>', self.on_target_focus_in)
+        self.target_text.bind('<FocusOut>', self.on_target_focus_out)
+        self.target_text.config(fg="gray")
 
         # 引擎选择下拉框
         tk.Label(search_frame, text="引擎:").pack(side="left", padx=(10, 0))
@@ -105,9 +118,6 @@ class SecurityScannerGUI:
         engine_combo.pack(side="left", padx=5)
 
         # AI分析勾选框
-        # self.ai_var = BooleanVar(value=True)
-        # ai_check = tk.Checkbutton(search_frame, text="启用AI分析", variable=self.ai_var)
-        # ai_check.pack(side="left", padx=10)
         if self.ollama_available:
             ai_text = "启用AI分析（Ollama）"
             ai_state = "normal"
@@ -115,7 +125,7 @@ class SecurityScannerGUI:
             ai_text = "启用AI分析（需Ollama）"
             ai_state = "disabled"
 
-        self.ai_var = BooleanVar(value=self.ollama_available)  # 默认开启如果可用
+        self.ai_var = BooleanVar(value=self.ollama_available)
         ai_check = tk.Checkbutton(
             search_frame,
             text=ai_text,
@@ -136,38 +146,21 @@ class SecurityScannerGUI:
         )
         config_btn.pack(side="right", padx=(0, 10))
 
-        # 状态栏
-        # self.status_var = StringVar(value="就绪")
-        # status_label = tk.Label(search_frame, textvariable=self.status_var, fg="blue")
-        # status_label.pack(side="right")
+    def create_notebook(self):
+        """创建标签页容器（替换原来的 create_table）"""
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # 存储每个标签页的表格
+        self.tab_frames = {}
+        self.tab_trees = {}
 
     def create_table(self):
-        table_frame = tk.Frame(self.root)
-        table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-        columns = ("ID", "URL", "IP", "端口", "协议", "标题", "来源", "AI判断")
-        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
-
-        col_widths = [40, 200, 120, 60, 60, 200, 80, 80]
-        for col, width in zip(columns, col_widths):
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=width, anchor="center")
-
-        # 绑定双击事件
-        self.tree.bind("<Double-1>", self.on_url_double_click)
-
-        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-        hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
-        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
-        table_frame.grid_rowconfigure(0, weight=1)
-        table_frame.grid_columnconfigure(0, weight=1)
+        """保持兼容性（已废弃）"""
+        pass
 
     def on_field_change(self, event=None):
-        """当字段选择改变时更新提示"""
+        """当字段选择改变时更新多行输入框的占位符"""
         field = self.field_var.get()
         placeholders = {
             "域名": "请输入域名，如: baidu.com",
@@ -178,20 +171,33 @@ class SecurityScannerGUI:
             "body": "请输入页面内容关键词，如: nginx",
             "自定义": "请输入完整查询语句"
         }
-        placeholder = placeholders.get(field, "请输入域名，如: baidu.com")
-        self.set_placeholder(placeholder)  # ← 改这里
+        new_placeholder = placeholders.get(field, "请输入域名，如: baidu.com")
+
+        # 获取当前输入框内容
+        current_content = self.target_text.get("1.0", "end-1c").strip()
+
+        # 如果当前是占位符内容，则更新为新的占位符
+        if current_content == self.get_current_placeholder().strip():
+            self.target_text.delete("1.0", "end")
+            self.target_text.insert("1.0", new_placeholder)
+            self.target_text.config(fg="gray")
+        # 如果输入框为空，也设置新的占位符
+        elif not current_content:
+            self.target_text.insert("1.0", new_placeholder)
+            self.target_text.config(fg="gray")
 
     def build_search_query(self, field, value, engine):
-        """根据字段、值和引擎构建查询语法"""
+        """根据字段、值和引擎构建查询语法（适配多行输入）"""
         if not value.strip():
             return ""
 
         value = value.strip()
-        if not value.strip() or value == self.placeholder_text:  # ← 添加占位符检查
+        # 检查是否等于当前占位符（保持原有逻辑）
+        if value == self.get_current_placeholder():
             return ""
 
         if field == "自定义":
-            return value  # 自定义字段直接返回原内容
+            return value
 
         if engine == "fofa":
             return self._build_fofa_query(field, value)
@@ -241,18 +247,31 @@ class SecurityScannerGUI:
             return f'domain:"{value}"'
 
     def on_url_double_click(self, event):
-        """处理 URL 双击事件"""
-        selection = self.tree.selection()
+        """处理 URL 双击事件（通用版本）"""
+        # 找到当前选中的标签页
+        current_tab = self.notebook.select()
+        if not current_tab:
+            return
+
+        # 获取当前标签页的 treeview
+        tree = None
+        for target, frame in self.tab_frames.items():
+            if str(frame) == current_tab:
+                tree = self.tab_trees[target]
+                break
+
+        if not tree:
+            return
+
+        selection = tree.selection()
         if not selection:
             return
 
         item = selection[0]
-        values = self.tree.item(item)['values']
+        values = tree.item(item)['values']
 
         if len(values) > 1:
             url = values[1]
-
-            # 确保 URL 有协议前缀
             if not url.startswith(('http://', 'https://')):
                 url = 'http://' + url
 
@@ -281,24 +300,32 @@ class SecurityScannerGUI:
         if self.config is None:
             self.config = {}
 
+    def get_targets_from_text(self):
+        """从多行文本框获取目标列表"""
+        content = self.target_text.get("1.0", "end-1c").strip()
+        if not content:
+            return []
+
+        # 如果是占位符内容，返回空列表
+        if content == self.get_current_placeholder():
+            return []
+
+        # 按行分割，过滤空行
+        targets = [line.strip() for line in content.split('\n') if line.strip()]
+        return targets
+
     def start_scan(self):
         if self.is_scanning:
             return
 
-        target = self.target_var.get().strip()
-        if not target or target == self.placeholder_text:  # ← 添加占位符检查
+        # 获取所有目标
+        targets = self.get_targets_from_text()
+        if not targets:
             messagebox.showwarning("错误", "请输入搜索内容")
             return
-
-        target = self.target_var.get().strip()
-        if not target:
-            messagebox.showwarning("错误", "请输入搜索内容")
-            return
-
-        # 获取引擎选择
-        engine = self.engine_var.get()
 
         # 检查 API 密钥
+        engine = self.engine_var.get()
         fofa_key = self.config.get('api', {}).get('fofa', {}).get('key', '').strip()
         quake_key = self.config.get('api', {}).get('quake', {}).get('key', '').strip()
 
@@ -313,13 +340,37 @@ class SecurityScannerGUI:
             return
 
         self.is_scanning = True
-        self.status_var.set("正在扫描...")
-        self.clear_results()
+        if len(targets) == 1:
+            self.status_var.set("正在扫描...")
+        else:
+            self.status_var.set(f"正在扫描 {len(targets)} 个目标...")
+        self.clear_all_results()
 
-        thread = threading.Thread(target=self.scan_worker, args=(target, engine), daemon=True)
+        thread = threading.Thread(target=self.batch_scan_worker, args=(targets, engine), daemon=True)
         thread.start()
 
-    def scan_worker(self, target, engine):
+    def batch_scan_worker(self, targets, engine):
+        """批量扫描工作线程"""
+        all_results = {}
+
+        for i, target in enumerate(targets):
+            try:
+                if len(targets) > 1:
+                    self.root.after(0, lambda t=target, idx=i:
+                    self.status_var.set(f"正在扫描 {idx + 1}/{len(targets)}: {t}"))
+
+                results = self.scan_single_target(target, engine)
+                all_results[target] = results
+
+            except Exception as e:
+                print(f"扫描 {target} 失败: {e}")
+                all_results[target] = []
+
+        # 所有扫描完成后更新 UI
+        self.root.after(0, self.update_batch_results, all_results)
+
+    def scan_single_target(self, target, engine):
+        """扫描单个目标"""
         results = []
         field = self.field_var.get()
 
@@ -348,78 +399,283 @@ class SecurityScannerGUI:
                 seen.add(host)
                 unique_results.append(r)
 
-        # AI 分析 - 在后台线程中执行
-        if self.ai_var.get() and getattr(self, 'ollama_available', False):
-            # 启动 AI 分析线程
+        return unique_results
+
+    def update_batch_results(self, all_results):
+        """更新批量扫描结果到标签页"""
+        # 清除现有标签页
+        for tab in self.notebook.tabs():
+            self.notebook.forget(tab)
+
+        self.tab_frames.clear()
+        self.tab_trees.clear()
+
+        # 为每个目标创建标签页
+        for target, results in all_results.items():
+            if results:  # 只为有结果的目标创建标签页
+                self.create_result_tab(target, results)
+
+        # 如果没有结果，创建一个可关闭的空标签页
+        if not all_results or not any(results for results in all_results.values()):
+            empty_frame = ttk.Frame(self.notebook)
+            self.notebook.add(empty_frame, text="无结果")
+
+            # 添加关闭按钮
+            close_btn = tk.Button(
+                empty_frame,
+                text="×",
+                command=self.close_empty_tab,
+                width=2,
+                height=1,
+                font=("Arial", 10, "bold"),
+                relief="flat",
+                fg="white",
+                bg="#dc3545"
+            )
+            close_btn.place(relx=1.0, rely=0.0, anchor="ne", x=-5, y=5)
+
+            label = tk.Label(empty_frame, text="未找到任何资产", fg="gray")
+            label.pack(expand=True)
+
+            self.empty_tab_frame = empty_frame
+
+        # 更新状态
+        total_targets = len(all_results)
+        total_assets = sum(len(results) for results in all_results.values())
+        if total_targets == 1:
+            self.status_var.set(f"扫描完成，共发现 {total_assets} 个资产")
+        else:
+            self.status_var.set(f"扫描完成，{total_targets} 个目标共发现 {total_assets} 个资产")
+        self.is_scanning = False
+
+    def create_result_tab(self, target, results):
+        """为单个目标创建结果标签页（带关闭按钮）"""
+        # 创建标签页框架
+        tab_frame = ttk.Frame(self.notebook)
+        tab_name = self.truncate_target_name(target)
+        self.notebook.add(tab_frame, text=tab_name)
+
+        # 存储引用
+        self.tab_frames[target] = tab_frame
+        self.tab_trees[target] = None
+
+        # 创建表格
+        columns = ("ID", "URL", "IP", "端口", "协议", "标题", "来源", "AI判断")
+        tree = ttk.Treeview(tab_frame, columns=columns, show="headings")
+
+        col_widths = [40, 200, 120, 60, 60, 200, 80, 80]
+        for col, width in zip(columns, col_widths):
+            tree.heading(col, text=col)
+            tree.column(col, width=width, anchor="center")
+
+        # 绑定双击事件
+        tree.bind("<Double-1>", self.on_url_double_click)
+
+        # 创建滚动条
+        vsb = ttk.Scrollbar(tab_frame, orient="vertical", command=tree.yview)
+        hsb = ttk.Scrollbar(tab_frame, orient="horizontal", command=tree.xview)
+        tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        # 布局
+        tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+        tab_frame.grid_rowconfigure(0, weight=1)
+        tab_frame.grid_columnconfigure(0, weight=1)
+
+        # 添加关闭按钮（右上角）
+        close_btn = tk.Button(
+            tab_frame,
+            text="×",
+            command=lambda t=target: self.close_tab(t),
+            width=2,
+            height=1,
+            font=("Arial", 10, "bold"),
+            relief="flat",
+            fg="white",
+            bg="#dc3545",
+            activebackground="#c82333"
+        )
+        close_btn.place(relx=1.0, rely=0.0, anchor="ne", x=-5, y=5)
+
+        # 更新存储引用
+        self.tab_trees[target] = tree
+
+        # 插入数据
+        self.insert_results_to_tree(tree, results, target)
+
+    def truncate_target_name(self, target, max_length=15):
+        """截断目标名称以适应标签页"""
+        if len(target) <= max_length:
+            return target
+        return target[:max_length - 3] + "..."
+
+    def insert_results_to_tree(self, tree, results, target):
+        """将结果插入到指定的表格中"""
+        # 如果启用了 AI 分析，先执行 AI 分析
+        if self.ai_var.get() and self.ollama_available:
+            # 在后台线程中执行 AI 分析
             ai_thread = threading.Thread(
-                target=self.perform_ai_analysis_background,
-                args=(unique_results,),
+                target=self.perform_ai_analysis_for_tab,
+                args=(results, tree, target),
                 daemon=True
             )
             ai_thread.start()
         else:
-            self.root.after(0, self.update_results, unique_results)
+            # 直接显示结果
+            self._insert_results_without_ai(tree, results)
 
-    def perform_ai_analysis(self, results):
-        """执行 AI 分析 - 只打标签，不判断有效性"""
+    def _insert_results_without_ai(self, tree, results):
+        """不使用 AI 分析直接插入结果"""
+        for i, item in enumerate(results, 1):
+            # 构建 URL 显示
+            host = item['host']
+            port = item['port']
+            protocol = item['protocol']
+
+            if port in ['80', '443']:
+                display_url = f"{protocol}://{host}"
+            else:
+                display_url = f"{protocol}://{host}:{port}"
+
+            tree.insert("", END, values=(
+                i,
+                display_url,
+                item['ip'],
+                item['port'],
+                item['protocol'],
+                item['title'][:50],
+                item['source'],
+                "✅有效" if self.ai_var.get() else "-"
+            ))
+
+    def perform_ai_analysis_for_tab(self, results, tree, target):
+        """为特定标签页执行 AI 分析"""
         try:
             from src.core.ollama_analyzer import OllamaAnalyzer
 
-            self.status_var.set("正在进行AI分析...")
+            # 更新状态
+            if len(self.tab_frames) > 1:  # 批量模式
+                self.root.after(0, lambda t=target:
+                self.status_var.set(f"AI分析中: {t}"))
 
-            # 创建分析器
             model_name = getattr(self, 'ollama_model', 'qwen3-coder:30b')
             analyzer = OllamaAnalyzer(model=model_name)
 
-            # 对每个网站进行AI分析并打标签
-            for i, item in enumerate(results):
-                print(f"AI分析网站 {i + 1}/{len(results)}...")
+            # 执行 AI 分析
+            for item in results:
                 ai_result = analyzer.analyze_website(item)
                 item['ai_analysis'] = ai_result
-                time.sleep(0.2)
 
-            self.root.after(0, self.update_results, results)
+            # 在主线程中更新 UI
+            self.root.after(0, self._insert_results_with_ai, tree, results)
 
         except Exception as e:
             print(f"AI 分析异常: {e}")
-            self.status_var.set("AI分析失败，显示原始结果")
-            self.root.after(0, self.update_results, results)
+            self.root.after(0, self._insert_results_without_ai, tree, results)
 
-    def perform_ai_analysis_background(self, results):
-        """在后台线程中执行 AI 分析（带详细调试）"""
+    def _insert_results_with_ai(self, tree, results):
+        """使用 AI 分析结果插入数据"""
+        for i, item in enumerate(results, 1):
+            # AI 分析结果处理
+            if 'ai_analysis' in item:
+                ai_result = item['ai_analysis']
+                tags = ai_result.get('tags', [])
+
+                if tags:
+                    display_tags = " ".join(tags[:3])
+                    ai_status = f"🏷️{display_tags}"
+                else:
+                    ai_status = "✅AI分析"
+            else:
+                ai_status = "✅有效" if self.ai_var.get() else "-"
+
+            # 构建 URL 显示
+            host = item['host']
+            port = item['port']
+            protocol = item['protocol']
+
+            if port in ['80', '443']:
+                display_url = f"{protocol}://{host}"
+            else:
+                display_url = f"{protocol}://{host}:{port}"
+
+            tree.insert("", END, values=(
+                i,
+                display_url,
+                item['ip'],
+                item['port'],
+                item['protocol'],
+                item['title'][:50],
+                item['source'],
+                ai_status
+            ))
+
+    def close_tab(self, target):
+        """关闭指定的标签页"""
         try:
-            from src.core.ollama_analyzer import OllamaAnalyzer
+            if target in self.tab_frames:
+                # 获取当前选中的标签页
+                current_tab = self.notebook.select()
+                closing_tab = str(self.tab_frames[target])
 
-            self.root.after(0, lambda: self.status_var.set("正在进行AI分析..."))
+                # 关闭标签页
+                self.notebook.forget(self.tab_frames[target])
 
-            print("=== AI 分析开始 ===")
-            print(f"分析 {len(results)} 个网站")
+                # 清理数据
+                del self.tab_frames[target]
+                if target in self.tab_trees:
+                    del self.tab_trees[target]
 
-            model_name = getattr(self, 'ollama_model', 'qwen3-coder:30b')
-            print(f"使用模型: {model_name}")
+                # 如果关闭的是当前选中的标签页，选择下一个或前一个
+                if current_tab == closing_tab and len(self.tab_frames) > 0:
+                    # 选择第一个可用的标签页
+                    first_target = next(iter(self.tab_frames))
+                    self.notebook.select(self.tab_frames[first_target])
 
-            analyzer = OllamaAnalyzer(model=model_name)
-            print("OllamaAnalyzer 创建成功")
-
-            for i, item in enumerate(results):
-                host = item.get('host', 'N/A')
-                title = item.get('title', 'N/A')
-                print(f"分析 {i + 1}/{len(results)}: {host} - {title}")
-
-                ai_result = analyzer.analyze_website(item)
-                print(f"结果: {ai_result}")
-                item['ai_analysis'] = ai_result
-
-            print("=== AI 分析完成 ===")
-            self.root.after(0, self.update_results, results)
+                print(f"已关闭标签页: {target}")
 
         except Exception as e:
-            import traceback
-            print("=== AI 分析完全失败 ===")
-            print(f"错误: {e}")
-            traceback.print_exc()
-            self.root.after(0, lambda: self.status_var.set("AI分析失败"))
-            self.root.after(0, self.update_results, results)
+            print(f"关闭标签页失败: {e}")
+
+    def close_empty_tab(self):
+        """关闭空标签页"""
+        try:
+            self.notebook.forget(self.empty_tab_frame)
+            delattr(self, 'empty_tab_frame')
+        except Exception as e:
+            print(f"关闭空标签页失败: {e}")
+
+    def clear_all_results(self):
+        """清除所有标签页结果"""
+        for tab in list(self.tab_frames.keys()):
+            self.close_tab(tab)
+        if hasattr(self, 'empty_tab_frame'):
+            self.close_empty_tab()
+
+    def clear_results(self):
+        """保持兼容性（已废弃）"""
+        self.clear_all_results()
+
+    def export_csv(self):
+        """导出所有标签页的结果"""
+        if not self.tab_trees:
+            messagebox.showinfo("提示", "没有数据可导出")
+            return
+
+        try:
+            with open("scan_results.csv", "w", encoding="utf-8-sig") as f:
+                f.write("目标,ID,URL,IP,端口,协议,标题,来源,AI判断\n")
+
+                for target, tree in self.tab_trees.items():
+                    for item in tree.get_children():
+                        values = tree.item(item)['values']
+                        row = [target] + [str(v) for v in values]
+                        f.write(",".join(row) + "\n")
+
+            messagebox.showinfo("成功", "结果已导出到 scan_results.csv")
+        except Exception as e:
+            messagebox.showerror("错误", f"导出失败: {str(e)}")
 
     def check_ollama_available(self):
         """检查 Ollama 是否可用"""
@@ -449,88 +705,13 @@ class SecurityScannerGUI:
             return False
 
     def update_results(self, results):
-        for i, item in enumerate(results, 1):
-            # AI 分析结果处理 - 只显示标签，不判断有效性
-            if self.ai_var.get() and 'ai_analysis' in item:
-                ai_result = item['ai_analysis']
-                tags = ai_result.get('tags', [])
+        """保持兼容性（已废弃）"""
+        pass
 
-                if tags:
-                    # 取前2-3个标签显示
-                    display_tags = " ".join(tags[:3])
-                    ai_status = f"🏷️{display_tags}"
-                else:
-                    ai_status = "✅AI分析"
+    def perform_ai_analysis(self, results):
+        """保持兼容性（已废弃）"""
+        pass
 
-            else:
-                ai_status = "✅有效" if self.ai_var.get() else "-"
-
-            # 构建 URL 显示
-            host = item['host']
-            port = item['port']
-            protocol = item['protocol']
-
-            if port in ['80', '443']:
-                display_url = f"{protocol}://{host}"
-            else:
-                display_url = f"{protocol}://{host}:{port}"
-
-            self.tree.insert("", END, values=(
-                i,
-                display_url,
-                item['ip'],
-                item['port'],
-                item['protocol'],
-                item['title'][:50],
-                item['source'],
-                ai_status
-            ))
-
-        self.status_var.set(f"扫描完成，共发现 {len(results)} 个资产")
-        self.is_scanning = False
-        # for i, item in enumerate(results, 1):
-        #     ai_status = "✅有效" if self.ai_var.get() else "-"
-        #
-        #     # 构建完整的 URL
-        #     host = item['host']
-        #     port = item['port']
-        #     protocol = item['protocol']
-        #
-        #     if port in ['80', '443']:
-        #         display_url = f"{protocol}://{host}"
-        #     else:
-        #         display_url = f"{protocol}://{host}:{port}"
-        #
-        #     self.tree.insert("", END, values=(
-        #         i,
-        #         display_url,
-        #         item['ip'],
-        #         item['port'],
-        #         item['protocol'],
-        #         item['title'][:50],
-        #         item['source'],
-        #         ai_status
-        #     ))
-        #
-        # self.status_var.set(f"扫描完成，共发现 {len(results)} 个资产")
-        # self.is_scanning = False
-
-
-    def clear_results(self):
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
-    def export_csv(self):
-        if not self.tree.get_children():
-            messagebox.showinfo("提示", "没有数据可导出")
-            return
-
-        try:
-            with open("scan_results.csv", "w", encoding="utf-8-sig") as f:
-                f.write("ID,URL,IP,端口,协议,标题,来源,AI判断\n")
-                for item in self.tree.get_children():
-                    values = self.tree.item(item)['values']
-                    f.write(",".join(str(v) for v in values) + "\n")
-            messagebox.showinfo("成功", "结果已导出到 scan_results.csv")
-        except Exception as e:
-            messagebox.showerror("错误", f"导出失败: {str(e)}")
+    def perform_ai_analysis_background(self, results):
+        """保持兼容性（已废弃）"""
+        pass
