@@ -37,7 +37,7 @@ class FofaClient:
             print(f"FOFA 验证错误: {e}")
         return False
 
-    def search_by_query(self, query, total_size=3000):
+    def search_by_query(self, query, total_size=100):
         """使用自定义查询语法进行搜索"""
         if not self.key.strip():
             print("❌ FOFA 密钥未配置")
@@ -76,7 +76,7 @@ class FofaClient:
             print(f"💥 FOFA 请求异常: {e}")
             return []
 
-    def search_by_domain(self, domain, total_size=3000):
+    def search_by_domain(self, domain, total_size=100):
         """VIP 账户完整扫描"""
         if not self.key.strip():
             print("❌ FOFA 密钥未配置")

@@ -941,43 +941,6 @@ class SpaceMappingUI:
             print(f"AI 分析异常: {e}")
             self.root.after(0, self._insert_results_without_ai, tree, results)
 
-    def _insert_results_with_ai(self, tree, results):
-        """使用 AI 分析结果插入数据"""
-        for i, item in enumerate(results, 1):
-            # AI 分析结果处理
-            if 'ai_analysis' in item:
-                ai_result = item['ai_analysis']
-                tags = ai_result.get('tags', [])
-
-                if tags:
-                    display_tags = " ".join(tags[:3])
-                    ai_status = f"🏷️{display_tags}"
-                else:
-                    ai_status = "✅AI分析"
-            else:
-                ai_status = "✅有效" if self.ai_var.get() else "-"
-
-            # 构建 URL 显示
-            host = item['host']
-            port = item['port']
-            protocol = item['protocol']
-
-            if port in ['80', '443']:
-                display_url = f"{protocol}://{host}"
-            else:
-                display_url = f"{protocol}://{host}:{port}"
-
-            tree.insert("", END, values=(
-                i,
-                display_url,
-                item['ip'],
-                item['port'],
-                item['protocol'],
-                item['title'][:50],
-                item['source'],
-                ai_status
-            ))
-
     def close_tab(self, target):
         """关闭指定的标签页"""
         try:
@@ -1167,4 +1130,3 @@ class SpaceMappingUI:
 
         # 切换到目录爆破标签页并设置目标
         self.main_gui.switch_to_bruteforce_tab_with_urls(selected_urls)
-
