@@ -19,8 +19,7 @@ from src.ui.config_ui import ConfigDialog
 from src.core.config_manager import load_config
 from src.core.fofa_client import FofaClient
 from src.core.quake_client import QuakeClient
-import time
-import requests
+
 
 
 class SpaceMappingUI:
@@ -70,17 +69,37 @@ class SpaceMappingUI:
         """单行输入框焦点事件（已废弃）"""
         pass
 
+
     def on_target_focus_in(self, event):
-        """目标输入框获得焦点"""
-        current_placeholder = self.get_current_placeholder()
-        if self.target_text.get("1.0", "end-1c") == current_placeholder:
+        """目标输入框获得焦点 - 改进版"""
+        # 获取当前输入框内容
+        current_content = self.target_text.get("1.0", "end-1c")
+
+        # 定义所有可能的占位符
+        all_placeholders = [
+            "请输入域名，如: baidu.com",
+            "请输入IP地址，如: 1.1.1.1",
+            "请输入端口号，如: 80",
+            "请输入页面标题关键词，如: 百度",
+            "请输入icon_hash值，如: 123456789",
+            "请输入页面内容关键词，如: nginx",
+            "请输入完整查询语句"
+        ]
+
+        # 如果当前内容等于任何一个占位符，就清空输入框
+        if current_content in all_placeholders:
             self.target_text.delete("1.0", "end")
             self.target_text.config(fg="black")
 
     def on_target_focus_out(self, event):
-        """目标输入框失去焦点"""
-        if not self.target_text.get("1.0", "end-1c").strip():
+        """目标输入框失去焦点 - 改进版"""
+        # 获取当前输入框内容（去除首尾空白）
+        current_content = self.target_text.get("1.0", "end-1c").strip()
+
+        # 如果输入框为空，显示当前字段对应的占位符
+        if not current_content:
             current_placeholder = self.get_current_placeholder()
+            self.target_text.delete("1.0", "end")
             self.target_text.insert("1.0", current_placeholder)
             self.target_text.config(fg="gray")
 
@@ -173,14 +192,6 @@ class SpaceMappingUI:
         )
         config_btn.pack(side="right", padx=(0, 10))
 
-    # def create_notebook(self):
-    #     """创建标签页容器"""
-    #     self.notebook = ttk.Notebook(self.frame)
-    #     self.notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-    #
-    #     # 存储每个标签页的表格
-    #     self.tab_frames = {}
-    #     self.tab_trees = {}
 
     def create_notebook(self):
         """创建标签页容器"""
@@ -193,75 +204,6 @@ class SpaceMappingUI:
 
         # 创建右键菜单
         # self.create_context_menu()
-
-    # def create_context_menu(self):
-    #     """创建右键菜单"""
-    #     self.context_menu = tk.Menu(self.root, tearoff=0)
-    #     self.context_menu.add_command(
-    #         label="发送到目录爆破",
-    #         command=self.send_to_dir_bruteforce
-    #     )
-    #
-    #     # 绑定右键事件到 notebook
-    #     self.notebook.bind("<Button-3>", self.show_context_menu)
-
-    # def show_context_menu(self, event):
-    #     """显示右键菜单"""
-    #     # 找到当前选中的标签页
-    #     current_tab = self.notebook.select()
-    #     if not current_tab:
-    #         return
-    #
-    #     # 获取当前标签页的 treeview
-    #     tree = None
-    #     for target, frame in self.tab_frames.items():
-    #         if str(frame) == current_tab:
-    #             tree = self.tab_trees[target]
-    #             break
-    #
-    #     if not tree:
-    #         return
-    #
-    #     # 检查是否有选中的项目
-    #     selection = tree.selection()
-    #     if not selection:
-    #         return
-    #
-    #     # 显示右键菜单
-    #     try:
-    #         self.context_menu.tk_popup(event.x_root, event.y_root)
-    #     finally:
-    #         self.context_menu.grab_release()
-
-    # def send_to_dir_bruteforce(self):
-    #     """发送选中的URL到目录爆破功能"""
-    #     # 找到当前选中的标签页
-    #     current_tab = self.notebook.select()
-    #     if not current_tab:
-    #         return
-    #
-    #     # 获取当前标签页的 treeview
-    #     tree = None
-    #     for target, frame in self.tab_frames.items():
-    #         if str(frame) == current_tab:
-    #             tree = self.tab_trees[target]
-    #             break
-    #
-    #     if not tree:
-    #         return
-    #
-    #     # 获取选中的项目
-    #     selection = tree.selection()
-    #     if not selection:
-    #         return
-    #
-    #     item = selection[0]
-    #     values = tree.item(item)['values']
-    #
-    #     if len(values) > 1:
-    #         url = values[1]
-    #         # 切换到目录爆破标签页
-    #         self.main_gui.switch_to_bruteforce_tab(url)
 
     def on_url_double_click(self, event):
         """处理 URL 双击事件（通用版本）"""
@@ -302,23 +244,24 @@ class SpaceMappingUI:
         """更新共享状态栏"""
         self.main_gui.update_status(message)
 
-    # def create_status_bar(self):
-    #     """创建底部状态栏"""
-    #     status_frame = tk.Frame(self.frame)
-    #     status_frame.pack(fill="x", side="bottom", padx=10, pady=5)
-    #
-    #     self.status_var = StringVar(value="就绪")
-    #     status_label = tk.Label(status_frame, textvariable=self.status_var, fg="blue", anchor="w")
-    #     status_label.pack(side="left")
-
-    # ... 其他空间测绘相关方法（保持原有逻辑不变）...
 
     def on_field_change(self, event=None):
-        """当字段选择改变时更新多行输入框的占位符"""
-        # 先保存当前（旧）的占位符
-        old_placeholder = self.get_current_placeholder()
+        """当字段选择改变时立即更新占位符"""
+        # 定义所有可能的占位符
+        all_placeholders = [
+            "请输入域名，如: baidu.com",
+            "请输入IP地址，如: 1.1.1.1",
+            "请输入端口号，如: 80",
+            "请输入页面标题关键词，如: 百度",
+            "请输入icon_hash值，如: 123456789",
+            "请输入页面内容关键词，如: nginx",
+            "请输入完整查询语句"
+        ]
 
-        # 切换字段后，获取新的占位符
+        # 获取当前输入框内容
+        current_content = self.target_text.get("1.0", "end-1c")
+
+        # 获取新字段对应的占位符
         field = self.field_var.get()
         placeholders = {
             "域名": "请输入域名，如: baidu.com",
@@ -331,19 +274,20 @@ class SpaceMappingUI:
         }
         new_placeholder = placeholders.get(field, "请输入域名，如: baidu.com")
 
-        # 获取当前输入框内容
-        current_content = self.target_text.get("1.0", "end-1c").strip()
-
-        # 如果当前显示的是旧占位符，则更新为新占位符
-        if current_content == old_placeholder.strip():
+        # 如果当前内容是任何一个占位符，就立即替换为新占位符
+        if current_content in all_placeholders:
             self.target_text.delete("1.0", "end")
             self.target_text.insert("1.0", new_placeholder)
             self.target_text.config(fg="gray")
-        # 如果输入框为空，也设置新的占位符
-        elif not current_content:
+        # 如果输入框为空，也设置新占位符
+        elif not current_content.strip():
             self.target_text.delete("1.0", "end")
             self.target_text.insert("1.0", new_placeholder)
             self.target_text.config(fg="gray")
+        # 如果用户已经输入了真实内容，保持不变
+        else:
+            # 保持用户输入的内容不变
+            pass
 
     def build_search_query(self, field, value, engine):
         """根据字段、值和引擎构建查询语法（适配多行输入）"""
@@ -1223,15 +1167,4 @@ class SpaceMappingUI:
 
         # 切换到目录爆破标签页并设置目标
         self.main_gui.switch_to_bruteforce_tab_with_urls(selected_urls)
-    #
-    # def update_results(self, results):
-    #     """保持兼容性（已废弃）"""
-    #     pass
-    #
-    # def perform_ai_analysis(self, results):
-    #     """保持兼容性（已废弃）"""
-    #     pass
-    #
-    # def perform_ai_analysis_background(self, results):
-    #     """保持兼容性（已废弃）"""
-    #     pass
+
