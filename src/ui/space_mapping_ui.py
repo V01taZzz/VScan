@@ -653,8 +653,8 @@ class SpaceMappingUI:
             # 切换到目录爆破标签页并设置目标
             self.main_gui.switch_to_bruteforce_tab(url)
 
-    def on_url_right_click(self, event):
-        """处理 URL 右键点击事件"""
+    def send_selected_urls_to_bruteforce(self):
+        """发送选中的多个URL到目录爆破功能"""
         # 找到当前选中的标签页
         current_tab = self.notebook.select()
         if not current_tab:
@@ -670,28 +670,80 @@ class SpaceMappingUI:
         if not tree:
             return
 
+        # 获取所有选中的项目
+        selections = tree.selection()
+        if not selections:
+            return
+
+        urls = []
+        for item in selections:
+            values = tree.item(item)['values']
+            if len(values) > 1:
+                url = values[1]
+                # 确保URL有协议前缀
+                if not url.startswith(('http://', 'https://')):
+                    url = 'http://' + url
+                urls.append(url)
+
+        if urls:
+            # 切换到目录爆破标签页并设置目标
+            self.main_gui.switch_to_bruteforce_tab_with_urls(urls)
+
+    def on_url_right_click(self, event):
+        """处理 URL 右键点击事件"""
+        # 找到当前选中的标签页
+        current_tab = self.notebook.select()
+        if not current_tab:
+            return
+
+        # 获取当前标签页的 treeview
+        tree = None
+        current_target = None
+        for target, frame in self.tab_frames.items():
+            if str(frame) == current_tab:
+                tree = self.tab_trees[target]
+                current_target = target
+                break
+
+        if not tree:
+            return
+
         # 识别点击的项目
         item = tree.identify_row(event.y)
         if not item:
             return
 
-        # 选中右键点击的项目
-        tree.selection_set(item)
+        # 不自动选中，保持用户当前的选择状态
+        # tree.selection_set(item)
 
         # 创建右键菜单
         context_menu = tk.Menu(self.root, tearoff=0)
 
-        # 添加复制选项
-        context_menu.add_command(
-            label="复制",
-            command=lambda: self.copy_selected_url(tree, item)
-        )
+        # 添加复制选项（复制当前右键点击的URL）
+        values = tree.item(item)['values']
+        if len(values) > 2:
+            context_menu.add_command(
+                label="复制",
+                command=lambda: self.copy_single_url(values[2])
+            )
 
-        # 添加发送到目录爆破选项
+        # 添加发送到目录爆破选项（发送所有勾选的URL）
         context_menu.add_command(
             label="发送到目录爆破",
-            command=lambda: self.send_selected_url_to_bruteforce(tree, item)
+            command=self.send_selected_urls_to_bruteforce
         )
+
+        # 添加全选/取消全选选项
+        if current_target:
+            context_menu.add_separator()
+            context_menu.add_command(
+                label="全选",
+                command=lambda: self.select_all_urls(current_target)
+            )
+            context_menu.add_command(
+                label="取消全选",
+                command=lambda: self.unselect_all_urls(current_target)
+            )
 
         # 显示右键菜单
         try:
@@ -699,8 +751,77 @@ class SpaceMappingUI:
         finally:
             context_menu.grab_release()
 
+    def copy_single_url(self, url):
+        """复制单个URL到剪贴板"""
+        self.root.clipboard_clear()
+        self.root.clipboard_append(url)
+        self.root.update()
+        self.update_status(f"已复制: {url}")
+
+    def select_all_urls(self, target):
+        """全选指定标签页的所有URL"""
+        if target in self.tab_trees:
+            tree = self.tab_trees[target]
+            items = tree.get_children()
+            for item in items:
+                values = tree.item(item)['values']
+                if len(values) > 0:
+                    values[0] = "✓"
+                    tree.item(item, values=values)
+
+    def unselect_all_urls(self, target):
+        """取消全选指定标签页的所有URL"""
+        if target in self.tab_trees:
+            tree = self.tab_trees[target]
+            items = tree.get_children()
+            for item in items:
+                values = tree.item(item)['values']
+                if len(values) > 0:
+                    values[0] = ""
+                    tree.item(item, values=values)
+
+    def on_checkbox_click(self, event):
+        """处理勾选框点击事件 - 简化版本"""
+        # 找到当前选中的标签页
+        current_tab = self.notebook.select()
+        if not current_tab:
+            return
+
+        # 获取当前标签页的 treeview
+        tree = None
+        for target, frame in self.tab_frames.items():
+            if str(frame) == current_tab:
+                tree = self.tab_trees[target]
+                break
+
+        if not tree:
+            return
+
+        # 获取点击位置的列索引
+        def get_column_index(tree, x):
+            total_width = 0
+            for i, col in enumerate(tree["columns"]):
+                col_width = tree.column(col, 'width')
+                if total_width <= x <= total_width + col_width:
+                    return i
+                total_width += col_width
+            return -1
+
+        # 获取点击的列索引
+        col_index = get_column_index(tree, event.x)
+        item = tree.identify_row(event.y)
+
+        # 如果点击的是第一列（勾选框列）且有选中项目
+        if col_index == 0 and item:
+            values = tree.item(item)['values']
+            if len(values) > 0:
+                current_value = values[0]
+                new_value = "✓" if current_value != "✓" else ""
+                values[0] = new_value
+                tree.item(item, values=values)
+
     def create_result_tab(self, target, results):
-        """为单个目标创建结果标签页（带关闭按钮）"""
+        """为单个目标创建结果标签页（带真正的勾选框）"""
         # 创建标签页框架
         tab_frame = ttk.Frame(self.notebook)
         tab_name = self.truncate_target_name(target)
@@ -710,19 +831,26 @@ class SpaceMappingUI:
         self.tab_frames[target] = tab_frame
         self.tab_trees[target] = None
 
-        # 创建表格
-        columns = ("ID", "URL", "IP", "端口", "协议", "标题", "来源", "AI判断")
+        # 创建表格 - 添加勾选框列
+        columns = ("Select", "ID", "URL", "IP", "端口", "协议", "标题", "来源", "AI判断")
         tree = ttk.Treeview(tab_frame, columns=columns, show="headings")
 
-        col_widths = [40, 200, 120, 60, 60, 200, 80, 80]
-        for col, width in zip(columns, col_widths):
-            tree.heading(col, text=col)
-            tree.column(col, width=width, anchor="center")
+        col_widths = [40, 40, 200, 120, 60, 60, 200, 80, 80]
+        for i, (col, width) in enumerate(zip(columns, col_widths)):
+            if col == "Select":
+                # 勾选框列设置为可点击
+                tree.heading(col, text=col)
+                tree.column(col, width=width, anchor="center")
+                # 绑定勾选框点击事件
+                tree.bind("<Button-1>", self.on_checkbox_click)
+            else:
+                tree.heading(col, text=col)
+                tree.column(col, width=width, anchor="center")
 
         # 绑定双击事件
         tree.bind("<Double-1>", self.on_url_double_click)
 
-        # 绑定右键事件（关键修改）
+        # 绑定右键事件
         tree.bind("<Button-3>", self.on_url_right_click)
 
         vsb = ttk.Scrollbar(tab_frame, orient="vertical", command=tree.yview)
@@ -763,7 +891,7 @@ class SpaceMappingUI:
         return target[:max_length - 3] + "..."
 
     def insert_results_to_tree(self, tree, results, target):
-        """将结果插入到指定的表格中"""
+        """将结果插入到指定的表格中（包含勾选框）"""
         # 如果启用了 AI 分析，先执行 AI 分析
         if self.ai_var.get() and self.ollama_available:
             # 在后台线程中执行 AI 分析
@@ -777,8 +905,9 @@ class SpaceMappingUI:
             # 直接显示结果
             self._insert_results_without_ai(tree, results)
 
+
     def _insert_results_without_ai(self, tree, results):
-        """不使用 AI 分析直接插入结果"""
+        """不使用 AI 分析直接插入结果（包含勾选框）"""
         for i, item in enumerate(results, 1):
             # 构建 URL 显示
             host = item['host']
@@ -790,7 +919,9 @@ class SpaceMappingUI:
             else:
                 display_url = f"{protocol}://{host}:{port}"
 
+            # 插入带勾选框的数据
             tree.insert("", END, values=(
+                "",  # 勾选框列（空，由用户勾选）
                 i,
                 display_url,
                 item['ip'],
@@ -799,6 +930,46 @@ class SpaceMappingUI:
                 item['title'][:50],
                 item['source'],
                 "✅有效" if self.ai_var.get() else "-"
+            ))
+
+
+    def _insert_results_with_ai(self, tree, results):
+        """使用 AI 分析结果插入数据（包含勾选框）"""
+        for i, item in enumerate(results, 1):
+            # AI 分析结果处理
+            if 'ai_analysis' in item:
+                ai_result = item['ai_analysis']
+                tags = ai_result.get('tags', [])
+
+                if tags:
+                    display_tags = " ".join(tags[:3])
+                    ai_status = f"🏷️{display_tags}"
+                else:
+                    ai_status = "✅AI分析"
+            else:
+                ai_status = "✅有效" if self.ai_var.get() else "-"
+
+            # 构建 URL 显示
+            host = item['host']
+            port = item['port']
+            protocol = item['protocol']
+
+            if port in ['80', '443']:
+                display_url = f"{protocol}://{host}"
+            else:
+                display_url = f"{protocol}://{host}:{port}"
+
+            # 插入带勾选框的数据
+            tree.insert("", END, values=(
+                "",  # 勾选框列
+                i,
+                display_url,
+                item['ip'],
+                item['port'],
+                item['protocol'],
+                item['title'][:50],
+                item['source'],
+                ai_status
             ))
 
     def perform_ai_analysis_for_tab(self, results, tree, target):
@@ -1004,14 +1175,63 @@ class SpaceMappingUI:
             # 切换到目录爆破标签页
             self.main_gui.switch_to_bruteforce_tab(url)
 
-    def update_results(self, results):
-        """保持兼容性（已废弃）"""
-        pass
+    def toggle_select_all(self, target):
+        """全选/取消全选"""
+        if target in self.tab_trees:
+            tree = self.tab_trees[target]
+            items = tree.get_children()
+            if items:
+                # 检查是否已经全选
+                first_item = tree.item(items[0])['values']
+                if first_item[0] == "✓":
+                    # 取消全选
+                    for item in items:
+                        values = tree.item(item)['values']
+                        values[0] = ""
+                        tree.item(item, values=values)
+                else:
+                    # 全选
+                    for item in items:
+                        values = tree.item(item)['values']
+                        values[0] = "✓"
+                        tree.item(item, values=values)
 
-    def perform_ai_analysis(self, results):
-        """保持兼容性（已废弃）"""
-        pass
+    def get_selected_urls(self):
+        """获取所有勾选的URL"""
+        selected_urls = []
 
-    def perform_ai_analysis_background(self, results):
-        """保持兼容性（已废弃）"""
-        pass
+        # 遍历所有标签页
+        for target, tree in self.tab_trees.items():
+            items = tree.get_children()
+            for item in items:
+                values = tree.item(item)['values']
+                if len(values) > 2 and values[0] == "✓":  # 勾选框列是第0列
+                    url = values[2]  # URL列是第2列
+                    if not url.startswith(('http://', 'https://')):
+                        url = 'http://' + url
+                    selected_urls.append(url)
+
+        return selected_urls
+
+    def send_selected_urls_to_bruteforce(self):
+        """发送勾选的URL到目录爆破功能"""
+        selected_urls = self.get_selected_urls()
+
+        if not selected_urls:
+            messagebox.showwarning("提示", "请先勾选要发送的URL")
+            return
+
+        # 切换到目录爆破标签页并设置目标
+        self.main_gui.switch_to_bruteforce_tab_with_urls(selected_urls)
+    #
+    # def update_results(self, results):
+    #     """保持兼容性（已废弃）"""
+    #     pass
+    #
+    # def perform_ai_analysis(self, results):
+    #     """保持兼容性（已废弃）"""
+    #     pass
+    #
+    # def perform_ai_analysis_background(self, results):
+    #     """保持兼容性（已废弃）"""
+    #     pass

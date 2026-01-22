@@ -60,3 +60,13 @@ class MainGUI:
         if hasattr(self.dir_bruteforce_ui, 'brute_target_var'):
             self.dir_bruteforce_ui.brute_target_var.set(url)
             self.update_status(f"已发送 {url} 到目录爆破")
+
+    def switch_to_bruteforce_tab_with_urls(self, urls):
+        """切换到目录爆破标签页并设置多个目标URL"""
+        # 切换到目录爆破标签页（索引为1）
+        self.main_notebook.select(1)
+
+        # 设置目标URL
+        if hasattr(self.dir_bruteforce_ui, 'set_target_urls'):
+            self.dir_bruteforce_ui.set_target_urls(urls)
+            self.update_status(f"已发送 {len(urls)} 个URL到目录爆破")
