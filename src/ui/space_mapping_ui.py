@@ -5,12 +5,6 @@ Date:2026/1/22
 版本: 1.0.0
 Design by V01ta
 """
-# src/ui/space_mapping_ui.py
-# -*- coding: utf-8 -*-
-"""
-空间测绘功能界面
-"""
-
 import webbrowser
 import threading
 import tkinter as tk
@@ -19,8 +13,6 @@ from src.ui.config_ui import ConfigDialog
 from src.core.config_manager import load_config
 from src.core.fofa_client import FofaClient
 from src.core.quake_client import QuakeClient
-
-
 
 class SpaceMappingUI:
     def __init__(self, parent_notebook, main_gui):
@@ -56,19 +48,6 @@ class SpaceMappingUI:
         # 创建 UI 组件
         self.create_widgets()
         self.create_notebook()  # ✅ 正确：使用 create_notebook
-
-    def set_placeholder(self, placeholder_text):
-        """设置占位符（用于兼容性，实际使用多行文本框）"""
-        pass
-
-    def on_entry_focus_in(self, event):
-        """单行输入框焦点事件（已废弃）"""
-        pass
-
-    def on_entry_focus_out(self, event):
-        """单行输入框焦点事件（已废弃）"""
-        pass
-
 
     def on_target_focus_in(self, event):
         """目标输入框获得焦点 - 改进版"""
@@ -205,40 +184,6 @@ class SpaceMappingUI:
         # 创建右键菜单
         # self.create_context_menu()
 
-    def on_url_double_click(self, event):
-        """处理 URL 双击事件（通用版本）"""
-        # 找到当前选中的标签页
-        current_tab = self.notebook.select()
-        if not current_tab:
-            return
-
-        # 获取当前标签页的 treeview
-        tree = None
-        for target, frame in self.tab_frames.items():
-            if str(frame) == current_tab:
-                tree = self.tab_trees[target]
-                break
-
-        if not tree:
-            return
-
-        selection = tree.selection()
-        if not selection:
-            return
-
-        item = selection[0]
-        values = tree.item(item)['values']
-
-        if len(values) > 1:
-            url = values[1]
-            if not url.startswith(('http://', 'https://')):
-                url = 'http://' + url
-
-            try:
-                import webbrowser
-                webbrowser.open(url)
-            except Exception as e:
-                messagebox.showerror("错误", f"无法打开链接: {str(e)}")
 
     def update_status(self, message):
         """更新共享状态栏"""
@@ -309,6 +254,26 @@ class SpaceMappingUI:
         else:
             return ""
 
+    def _build_quake_query(self, field, value):
+        """构建 Quake 查询语法（改进版）"""
+        # 字段映射
+        field_map = {
+            "域名": "domain",
+            "IP": "ip",
+            "端口": "port",
+            "标题": "title",
+            "icon": "icon_hash",  # Quake 支持 icon_hash
+            "body": "body"
+        }
+
+        quake_field = field_map.get(field, "domain")
+
+        # 特殊处理：端口为数字时不用引号
+        if field == "端口" and value.isdigit():
+            return f'{quake_field}:{value}'
+        else:
+            return f'{quake_field}:"{value}"'
+
     def _build_fofa_query(self, field, value):
         """构建 FOFA 查询语法"""
         field_map = {
@@ -327,27 +292,6 @@ class SpaceMappingUI:
             return f'{fofa_field}="{value}"'
         else:
             return f'{fofa_field}="{value}"'
-
-    def _build_quake_query(self, field, value):
-        """构建 Quake 查询语法"""
-        if field == "域名":
-            return f'domain:"{value}"'
-        elif field == "IP":
-            return f'ip:"{value}"'
-        elif field == "端口":
-            if value.isdigit():
-                return f'port:{value}'
-            else:
-                return f'port:"{value}"'
-        elif field == "标题":
-            return f'title:"{value}"'
-        elif field == "icon":
-            # Quake 不支持 icon_hash，使用 body 包含
-            return f'body:"{value}"'
-        elif field == "body":
-            return f'body:"{value}"'
-        else:
-            return f'domain:"{value}"'
 
     def on_url_double_click(self, event):
         """处理 URL 双击事件（通用版本）"""
@@ -373,8 +317,9 @@ class SpaceMappingUI:
         item = selection[0]
         values = tree.item(item)['values']
 
-        if len(values) > 1:
-            url = values[1]
+        # 修正：URL 是第3列（索引2），不是第2列（索引1）
+        if len(values) > 2:
+            url = values[2]  # ← 修正这里！
             if not url.startswith(('http://', 'https://')):
                 url = 'http://' + url
 
@@ -480,7 +425,7 @@ class SpaceMappingUI:
             self.update_status("正在扫描...")
         else:
             self.update_status(f"正在扫描 {len(targets)} 个目标...")
-        self.clear_all_results()
+            # self.clear_all_results()
 
         thread = threading.Thread(target=self.batch_scan_worker, args=(targets, engine), daemon=True)
         thread.start()
@@ -538,29 +483,42 @@ class SpaceMappingUI:
         return unique_results
 
     def update_batch_results(self, all_results):
-        """更新批量扫描结果到标签页"""
-        # 清除现有标签页
-        for tab in self.notebook.tabs():
-            self.notebook.forget(tab)
+        """更新批量扫描结果到标签页（保留历史结果）"""
+        # ❌ 不再清除现有标签页
+        # for tab in self.notebook.tabs():
+        #     self.notebook.forget(tab)
+        #
+        # self.tab_frames.clear()
+        # self.tab_trees.clear()
 
-        self.tab_frames.clear()
-        self.tab_trees.clear()
-
-        # 为每个目标创建标签页
+        # 为每个目标创建标签页（如果不存在的话）
         for target, results in all_results.items():
             if results:  # 只为有结果的目标创建标签页
+                # 检查是否已经存在同名标签页
+                tab_exists = False
+                for existing_target in list(self.tab_frames.keys()):
+                    if existing_target == target:
+                        tab_exists = True
+                        # 如果已存在，先关闭旧的标签页
+                        self.close_tab(existing_target)
+                        break
+
+                # 创建新的标签页
                 self.create_result_tab(target, results)
 
         # 如果没有结果，创建一个可关闭的空标签页
         if not all_results or not any(results for results in all_results.values()):
             empty_frame = ttk.Frame(self.notebook)
-            self.notebook.add(empty_frame, text="无结果")
+            # 为避免重复，使用带时间戳的标签名
+            import time
+            timestamp = time.strftime("%H:%M:%S")
+            self.notebook.add(empty_frame, text=f"无结果({timestamp})")
 
             # 添加关闭按钮
             close_btn = tk.Button(
                 empty_frame,
                 text="×",
-                command=self.close_empty_tab,
+                command=lambda f=empty_frame: self.notebook.forget(f),
                 width=2,
                 height=1,
                 font=("Arial", 10, "bold"),
@@ -572,8 +530,6 @@ class SpaceMappingUI:
 
             label = tk.Label(empty_frame, text="未找到任何资产", fg="gray")
             label.pack(expand=True)
-
-            self.empty_tab_frame = empty_frame
 
         # 更新状态
         total_targets = len(all_results)
@@ -597,41 +553,6 @@ class SpaceMappingUI:
             # 切换到目录爆破标签页并设置目标
             self.main_gui.switch_to_bruteforce_tab(url)
 
-    def send_selected_urls_to_bruteforce(self):
-        """发送选中的多个URL到目录爆破功能"""
-        # 找到当前选中的标签页
-        current_tab = self.notebook.select()
-        if not current_tab:
-            return
-
-        # 获取当前标签页的 treeview
-        tree = None
-        for target, frame in self.tab_frames.items():
-            if str(frame) == current_tab:
-                tree = self.tab_trees[target]
-                break
-
-        if not tree:
-            return
-
-        # 获取所有选中的项目
-        selections = tree.selection()
-        if not selections:
-            return
-
-        urls = []
-        for item in selections:
-            values = tree.item(item)['values']
-            if len(values) > 1:
-                url = values[1]
-                # 确保URL有协议前缀
-                if not url.startswith(('http://', 'https://')):
-                    url = 'http://' + url
-                urls.append(url)
-
-        if urls:
-            # 切换到目录爆破标签页并设置目标
-            self.main_gui.switch_to_bruteforce_tab_with_urls(urls)
 
     def on_url_right_click(self, event):
         """处理 URL 右键点击事件"""
@@ -657,8 +578,6 @@ class SpaceMappingUI:
         if not item:
             return
 
-        # 不自动选中，保持用户当前的选择状态
-        # tree.selection_set(item)
 
         # 创建右键菜单
         context_menu = tk.Menu(self.root, tearoff=0)
@@ -668,7 +587,7 @@ class SpaceMappingUI:
         if len(values) > 2:
             context_menu.add_command(
                 label="复制",
-                command=lambda: self.copy_single_url(values[2])
+                command=lambda: self.copy_single_url(values[2])  # ← 修正这里
             )
 
         # 添加发送到目录爆破选项（发送所有勾选的URL）
@@ -917,28 +836,40 @@ class SpaceMappingUI:
             ))
 
     def perform_ai_analysis_for_tab(self, results, tree, target):
-        """为特定标签页执行 AI 分析"""
+        """为特定标签页执行 AI 分析（带URL进度显示）"""
         try:
             from src.core.ollama_analyzer import OllamaAnalyzer
-
-            # 更新状态
-            if len(self.tab_frames) > 1:  # 批量模式
-                self.root.after(0, lambda t=target:
-                self.update_status(f"AI分析中: {t}"))
 
             model_name = getattr(self, 'ollama_model', 'qwen3-coder:30b')
             analyzer = OllamaAnalyzer(model=model_name)
 
             # 执行 AI 分析
-            for item in results:
+            for i, item in enumerate(results):
+                host = item.get('host', 'N/A')
+                title = item.get('title', 'N/A')
+
+                # 构建完整的URL用于显示
+                port = item.get('port', '80')
+                protocol = item.get('protocol', 'http')
+                if port in ['80', '443']:
+                    display_url = f"{protocol}://{host}"
+                else:
+                    display_url = f"{protocol}://{host}:{port}"
+
+                # 更新状态栏显示当前分析的URL
+                self.root.after(0, lambda url=display_url, idx=i + 1, total=len(results):
+                self.update_status(f"AI分析中 ({idx}/{total}): {url}"))
+
                 ai_result = analyzer.analyze_website(item)
                 item['ai_analysis'] = ai_result
 
             # 在主线程中更新 UI
             self.root.after(0, self._insert_results_with_ai, tree, results)
+            self.root.after(0, lambda: self.update_status(f"AI分析完成，共分析 {len(results)} 个网站"))
 
         except Exception as e:
             print(f"AI 分析异常: {e}")
+            self.root.after(0, lambda: self.update_status("AI分析失败"))
             self.root.after(0, self._insert_results_without_ai, tree, results)
 
     def close_tab(self, target):
@@ -1104,7 +1035,7 @@ class SpaceMappingUI:
                         tree.item(item, values=values)
 
     def get_selected_urls(self):
-        """获取所有勾选的URL"""
+        """获取所有勾选的URL（修正版）"""
         selected_urls = []
 
         # 遍历所有标签页
@@ -1112,8 +1043,9 @@ class SpaceMappingUI:
             items = tree.get_children()
             for item in items:
                 values = tree.item(item)['values']
-                if len(values) > 2 and values[0] == "✓":  # 勾选框列是第0列
-                    url = values[2]  # URL列是第2列
+                # 修正：URL 是索引2，不是索引1
+                if len(values) >= 3 and values[0] == "✓":  # Select列是索引0
+                    url = values[2]  # URL列是索引2 ✅
                     if not url.startswith(('http://', 'https://')):
                         url = 'http://' + url
                     selected_urls.append(url)
@@ -1121,10 +1053,38 @@ class SpaceMappingUI:
         return selected_urls
 
     def send_selected_urls_to_bruteforce(self):
-        """发送勾选的URL到目录爆破功能"""
+        """发送勾选的URL到目录爆破功能（修正版）"""
         selected_urls = self.get_selected_urls()
 
         if not selected_urls:
+            # 如果没有勾选任何URL，检查是否有选中行
+            current_tab = self.notebook.select()
+            if not current_tab:
+                messagebox.showwarning("提示", "请先选择或勾选要发送的URL")
+                return
+
+            tree = None
+            for target, frame in self.tab_frames.items():
+                if str(frame) == current_tab:
+                    tree = self.tab_trees[target]
+                    break
+
+            if tree:
+                selections = tree.selection()
+                if selections:
+                    # 从选中行获取URL
+                    urls = []
+                    for item in selections:
+                        values = tree.item(item)['values']
+                        if len(values) > 2:
+                            url = values[2]  # ✅ 正确索引
+                            if not url.startswith(('http://', 'https://')):
+                                url = 'http://' + url
+                            urls.append(url)
+                    if urls:
+                        self.main_gui.switch_to_bruteforce_tab_with_urls(urls)
+                        return
+
             messagebox.showwarning("提示", "请先勾选要发送的URL")
             return
 

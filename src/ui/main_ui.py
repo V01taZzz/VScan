@@ -15,7 +15,7 @@ class MainGUI:
         self.root = root
         self.root.title("VScan安全空间测绘 - 金小白特供版")
         self.root.geometry("1000x600")
-        self.root.minsize(800, 500)
+        self.root.minsize(1200, 700)
 
         # 创建主标签页
         self.create_main_notebook()
